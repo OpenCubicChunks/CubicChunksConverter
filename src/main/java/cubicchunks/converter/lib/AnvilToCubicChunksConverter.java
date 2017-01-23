@@ -1,21 +1,50 @@
+/*
+ *  This file is part of CubicChunksConverter, licensed under the MIT License (MIT).
+ *
+ *  Copyright (c) 2017 contributors
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ *  all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ *  THE SOFTWARE.
+ */
 package cubicchunks.converter.lib;
 
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import com.flowpowered.nbt.DoubleTag;
 import com.flowpowered.nbt.IntTag;
 import com.flowpowered.nbt.ListTag;
 import com.flowpowered.nbt.stream.NBTInputStream;
+import com.flowpowered.nbt.stream.NBTOutputStream;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import cubicchunks.regionlib.SaveSection;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -96,20 +125,34 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				ByteBuffer[] cubes = extractCubeData(vanillaData);
 				ByteBuffer column = extractColumnData(vanillaData);
 				for (int y = 0; y < cubes.length; y++) {
+					if (cubes[y] == null) {
+						continue;
+					}
 					EntryLocation3D l = new EntryLocation3D(baseX + dx, y, baseZ + dz);
 					saveCubic.save3d(l, cubes[y]);
 				}
-				saveCubic.save2d(entryLoc, column);
+				if (column != null) {
+					saveCubic.save2d(entryLoc, column);
+				}
 			}
 		}
 	}
 
 	private ByteBuffer extractColumnData(ByteBuffer vanillaData) {
-
+		return null;
 	}
 
 	private ByteBuffer[] extractCubeData(ByteBuffer vanillaData) throws IOException {
 		CompoundTag[] tags = extractCubeData(readCompressed(new ByteArrayInputStream(vanillaData.array())));
+		ByteBuffer[] buffers = new ByteBuffer[tags.length];
+		for (int i = 0; i < tags.length; i++) {
+			CompoundTag tag = tags[i];
+			if (tag == null) {
+				continue;
+			}
+			buffers[i] = writeCompressed(tag);
+		}
+		return buffers;
 	}
 
 	private CompoundTag[] extractCubeData(CompoundTag srcRootTag) {
@@ -195,35 +238,81 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					// the vanilla section has additional Y tag, it will be ignored by cubic chunks
 					level.put(new ListTag<>("Sections", CompoundTag.class, Arrays.asList(srcSection)));
 
-					level.put(filterEntities((CompoundTag) srcLevel.get("Entities")));
-					level.put(filterTileEntities((CompoundTag) srcLevel.get("TileEntities")));
-					level.put(filterTileTicks((CompoundTag) srcLevel.get("TileTicks")));
+					level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
+					level.put(filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y));
+					level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
 				}
 				root.put(new CompoundTag("Level", level));
 			}
 			tags[y] = new CompoundTag("", root);
 		}
-
+		return tags;
 	}
 
 	private CompoundTag getSection(CompoundMap srcLevel, int y) {
-
+		ListTag<CompoundTag> sections = (ListTag<CompoundTag>) srcLevel.get("Sections");
+		for (CompoundTag tag : sections.getValue()) {
+			if (((IntTag) tag.getValue().get("Y")).getValue().equals(y)) {
+				return tag;
+			}
+		}
+		return null;
 	}
 
-	private CompoundTag filterEntities(CompoundTag entities) {
-
+	private ListTag<CompoundTag> filterEntities(ListTag<CompoundTag> entities, int cubeY) {
+		double yMin = cubeY*16;
+		double yMax = yMin + 16;
+		List<CompoundTag> cubeEntities = new ArrayList<>();
+		for (CompoundTag entityTag : entities.getValue()) {
+			List<DoubleTag> pos = (List<DoubleTag>) entityTag.getValue().get("Pos");
+			double y = pos.get(1).getValue();
+			if (y >= yMin && y < yMax) {
+				cubeEntities.add(entityTag);
+			}
+		}
+		return new ListTag<>(entities.getName(), CompoundTag.class, cubeEntities);
 	}
 
-	private CompoundTag filterTileEntities(CompoundTag tileEntities) {
-
+	private ListTag<?> filterTileEntities(ListTag<?> tileEntities, int cubeY) {
+		// empty list is list of EndTags
+		if (tileEntities.getValue().isEmpty()) {
+			return tileEntities;
+		}
+		int yMin = cubeY*16;
+		int yMax = yMin + 16;
+		List<CompoundTag> cubeTEs = new ArrayList<>();
+		for (CompoundTag teTag : ((ListTag<CompoundTag>) tileEntities).getValue()) {
+			int y = ((IntTag) teTag.getValue().get("y")).getValue();
+			if (y >= yMin && y < yMax) {
+				cubeTEs.add(teTag);
+			}
+		}
+		return new ListTag<>(tileEntities.getName(), CompoundTag.class, cubeTEs);
 	}
 
-	private CompoundTag filterTileTicks(CompoundTag tileTicks) {
-
+	private ListTag<CompoundTag> filterTileTicks(ListTag<CompoundTag> tileTicks, int cubeY) {
+		int yMin = cubeY*16;
+		int yMax = yMin + 16;
+		List<CompoundTag> cubeTicks = new ArrayList<>();
+		for (CompoundTag tileTick : tileTicks.getValue()) {
+			int y = ((IntTag) tileTick.getValue().get("y")).getValue();
+			if (y >= yMin && y < yMax) {
+				cubeTicks.add(tileTick);
+			}
+		}
+		return new ListTag<>(tileTicks.getName(), CompoundTag.class, cubeTicks);
 	}
 
 	private static CompoundTag readCompressed(InputStream is) throws IOException {
 		BufferedInputStream data = new BufferedInputStream(new GZIPInputStream(is));
 		return (CompoundTag) new NBTInputStream(data).readTag();
+	}
+
+	private static ByteBuffer writeCompressed(CompoundTag tag) throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		NBTOutputStream nbtOut = new NBTOutputStream(new GZIPOutputStream(bytes));
+		nbtOut.writeTag(tag);
+		nbtOut.close();
+		return ByteBuffer.wrap(bytes.toByteArray());
 	}
 }
