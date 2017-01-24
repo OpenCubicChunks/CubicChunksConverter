@@ -23,6 +23,7 @@
  */
 package cubicchunks.converter.lib;
 
+import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import com.flowpowered.nbt.DoubleTag;
@@ -37,6 +38,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,11 +47,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.InflaterInputStream;
 
 import cubicchunks.regionlib.SaveSection;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
-import cubicchunks.regionlib.impl.RegionLocation2D;
+import cubicchunks.regionlib.impl.MinecraftChunkLocation;
+import cubicchunks.regionlib.impl.MinecraftRegionLocation;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.region.Region;
 import cubicchunks.regionlib.region.header.TimestampHeaderEntryProvider;
@@ -58,6 +62,7 @@ import cubicchunks.regionlib.region.provider.SimpleRegionProvider;
 import cubicchunks.regionlib.util.WrappedException;
 
 public class AnvilToCubicChunksConverter implements ISaveConverter {
+
 	private static final BiFunction<Dimension, Path, Path> LOCATION_FUNC_SRC = (d, p) -> {
 		if (!d.getDirectory().isEmpty()) {
 			p = p.resolve(d.getDirectory());
@@ -73,26 +78,31 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	};
 
 
-	@Override public void convert(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+	@Override
+	public void convert(IProgress progress, Path srcDir, Path dstDir) throws IOException {
 		int step = 0;
 		int maxSteps = Dimensions.getDimensions().size();
 		for (Dimension d : Dimensions.getDimensions()) {
-			convertDimension(progress, LOCATION_FUNC_SRC.apply(d, srcDir), LOCATION_FUNC_DST.apply(d, dstDir), step, maxSteps);
+			Path srcLoc = LOCATION_FUNC_SRC.apply(d, srcDir);
+			if (!Files.exists(srcLoc)) {
+				continue;
+			}
+			convertDimension(progress, srcLoc, LOCATION_FUNC_DST.apply(d, dstDir), step, maxSteps);
 			step++;
 		}
 	}
 
 	private void convertDimension(IProgress progress, Path srcRegions, Path dstParent, int step, int maxSteps) throws IOException {
-		SaveSection<RegionLocation2D, EntryLocation2D> vanillaSave = new SaveSection<>(
+		SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = new SaveSection<>(
 			new CachedRegionProvider<>(
 				new SimpleRegionProvider<>(srcRegions, (path, key) ->
-					Region.<RegionLocation2D, EntryLocation2D>builder()
+					Region.<MinecraftRegionLocation, MinecraftChunkLocation>builder()
 						.setPath(path)
 						.setSectorSize(4096)
 						.setEntriesPerRegion(key.getKeyCount())
 						.addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
 						.build(),
-					RegionLocation2D::fromName
+					MinecraftRegionLocation::fromName
 				), 128
 			)
 		);
@@ -110,14 +120,17 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		} catch (WrappedException e) {
 			throw (IOException) e.get();
 		}
+		saveCubic.close();
 	}
 
-	private void convertRegion(IProgress progress, RegionLocation2D loc, SaveSection<RegionLocation2D, EntryLocation2D> vanillaSave, SaveCubeColumns saveCubic) throws IOException {
+	private void convertRegion(IProgress progress, MinecraftRegionLocation loc,
+	                           SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave,
+	                           SaveCubeColumns saveCubic) throws IOException {
 		int baseX = loc.getX() << EntryLocation2D.LOC_BITS;
-		int baseZ = loc.getX() << EntryLocation2D.LOC_BITS;
+		int baseZ = loc.getZ() << EntryLocation2D.LOC_BITS;
 		for (int dx = 0; dx < 32; dx++) {
 			for (int dz = 0; dz < 32; dz++) {
-				EntryLocation2D entryLoc = new EntryLocation2D(baseX + dx, baseZ + dz);
+				MinecraftChunkLocation entryLoc = new MinecraftChunkLocation(baseX + dx, baseZ + dz);
 				ByteBuffer vanillaData = vanillaSave.load(entryLoc).orElse(null);
 				if (vanillaData == null) {
 					continue;
@@ -132,7 +145,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					saveCubic.save3d(l, cubes[y]);
 				}
 				if (column != null) {
-					saveCubic.save2d(entryLoc, column);
+					saveCubic.save2d(new EntryLocation2D(entryLoc.getEntryX(), entryLoc.getEntryZ()), column);
 				}
 			}
 		}
@@ -143,7 +156,8 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	}
 
 	private ByteBuffer[] extractCubeData(ByteBuffer vanillaData) throws IOException {
-		CompoundTag[] tags = extractCubeData(readCompressed(new ByteArrayInputStream(vanillaData.array())));
+		ByteArrayInputStream in = new ByteArrayInputStream(vanillaData.array());
+		CompoundTag[] tags = extractCubeData(readCompressed(in));
 		ByteBuffer[] buffers = new ByteBuffer[tags.length];
 		for (int i = 0; i < tags.length; i++) {
 			CompoundTag tag = tags[i];
@@ -223,7 +237,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				CompoundMap level = new CompoundMap();
 
 				{
-					level.put(srcLevel.get("v"));
+					// level.put(srcLevel.get("v"));
 					level.put("x", srcLevel.get("xPos"));
 					level.put(new IntTag("y", y));
 					level.put("z", srcLevel.get("zPos"));
@@ -240,7 +254,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 					level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
 					level.put(filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y));
-					level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
+					if (srcLevel.containsKey("TileTicks")) {
+						level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
+					}
 				}
 				root.put(new CompoundTag("Level", level));
 			}
@@ -252,7 +268,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	private CompoundTag getSection(CompoundMap srcLevel, int y) {
 		ListTag<CompoundTag> sections = (ListTag<CompoundTag>) srcLevel.get("Sections");
 		for (CompoundTag tag : sections.getValue()) {
-			if (((IntTag) tag.getValue().get("Y")).getValue().equals(y)) {
+			if (((ByteTag) tag.getValue().get("Y")).getValue().equals((byte) (y))) {
 				return tag;
 			}
 		}
@@ -264,7 +280,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		double yMax = yMin + 16;
 		List<CompoundTag> cubeEntities = new ArrayList<>();
 		for (CompoundTag entityTag : entities.getValue()) {
-			List<DoubleTag> pos = (List<DoubleTag>) entityTag.getValue().get("Pos");
+			List<DoubleTag> pos = ((ListTag<DoubleTag>) entityTag.getValue().get("Pos")).getValue();
 			double y = pos.get(1).getValue();
 			if (y >= yMin && y < yMax) {
 				cubeEntities.add(entityTag);
@@ -304,8 +320,17 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	}
 
 	private static CompoundTag readCompressed(InputStream is) throws IOException {
-		BufferedInputStream data = new BufferedInputStream(new GZIPInputStream(is));
-		return (CompoundTag) new NBTInputStream(data).readTag();
+		int i = is.read();
+		BufferedInputStream data;
+		if (i == 1) {
+			data = new BufferedInputStream(new GZIPInputStream(is));
+		} else if (i == 2) {
+			data = new BufferedInputStream(new InflaterInputStream(is));
+		} else {
+			throw new UnsupportedOperationException();
+		}
+
+		return (CompoundTag) new NBTInputStream(data, false).readTag();
 	}
 
 	private static ByteBuffer writeCompressed(CompoundTag tag) throws IOException {

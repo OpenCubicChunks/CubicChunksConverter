@@ -33,8 +33,8 @@ import cubicchunks.converter.lib.SaveFormat;
 
 public class ConverterGui {
 	public static void main(String... args) throws IOException {
-		Path src = new File("G:\\mc-dev\\CubicChunks\\run\\saves\\New World").toPath();
-		Path dst = new File("G:\\mc-dev\\CubicChunks\\run\\saves\\Converted World").toPath();
+		Path src = new File("/home/bartosz/Desktop/mc-dev/CubicChunks/CubicChunks/run/saves/Vanilla").toPath();
+		Path dst = new File("/home/bartosz/Desktop/mc-dev/CubicChunks/CubicChunks/run/saves/VanillaConverted").toPath();
 		ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS).convert(
 			(p) -> {
 			}, src, dst);
