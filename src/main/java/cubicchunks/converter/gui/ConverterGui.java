@@ -24,20 +24,10 @@
 package cubicchunks.converter.gui;
 
 import java.awt.*;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
-
-import cubicchunks.converter.lib.ConverterRegistry;
-import cubicchunks.converter.lib.SaveFormat;
 
 public class ConverterGui {
 	public static void main(String... args) throws IOException {
-		Path src = new File("/home/bartosz/Desktop/mc-dev/CubicChunks/CubicChunks/run/saves/Vanilla").toPath();
-		Path dst = new File("/home/bartosz/Desktop/mc-dev/CubicChunks/CubicChunks/run/saves/VanillaConverted").toPath();
-		ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS).convert(
-			(p) -> {
-			}, src, dst);
-		EventQueue.invokeLater(() -> new GuiFrame().load());
+		EventQueue.invokeLater(() -> new GuiFrame().init());
 	}
 }

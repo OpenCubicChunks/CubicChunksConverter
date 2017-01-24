@@ -32,9 +32,9 @@ public class Dimensions {
 	private static final Set<Dimension> ALL_DIMENSIONS = new HashSet<>();
 
 	static {
-		ALL_DIMENSIONS.add(new Dimension("Overworld", ""));
-		ALL_DIMENSIONS.add(new Dimension("The Nether", "DIM-1"));
-		ALL_DIMENSIONS.add(new Dimension("Overworld", "DIM1"));
+		addDimension(new Dimension("Overworld", ""));
+		addDimension(new Dimension("The Nether", "DIM-1"));
+		addDimension(new Dimension("Overworld", "DIM1"));
 	}
 
 	public static void addDimension(Dimension dim) {

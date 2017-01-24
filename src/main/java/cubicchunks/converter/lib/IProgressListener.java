@@ -23,11 +23,6 @@
  */
 package cubicchunks.converter.lib;
 
-import java.nio.file.Path;
-
-public class IdentityConverter implements ISaveConverter {
-	@Override
-	public void convert(IProgressListener progress, Path srcDir, Path dstDir) {
-
-	}
+public interface IProgressListener {
+	void setProgress(ConvertProgress progress);
 }

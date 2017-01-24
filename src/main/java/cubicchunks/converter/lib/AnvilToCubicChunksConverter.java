@@ -48,6 +48,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
@@ -82,15 +84,58 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		return p;
 	};
 
+	private volatile int chunkCount = -1;
+	private volatile int fileCount = -1;
+
+	private int convChunks = -1;
+	private int copiedFiles = -1;
+	private Map<Dimension, SaveSection<MinecraftRegionLocation, MinecraftChunkLocation>> saves = new ConcurrentHashMap<>();
+	private boolean countingFiles;
+	private boolean countingChunks;
 
 	@Override
-	public void convert(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+	public void convert(IProgressListener progress, Path srcDir, Path dstDir) throws IOException {
+		saves.clear();
+		chunkCount = 0;
+		countingChunks = true;
+		fileCount = 0;
+		countingFiles = true;
+		convChunks = 0;
+		copiedFiles = 0;
+		initDimensions(srcDir);
+		startCounting(srcDir);
+		progress.setProgress(new ConvertProgress("Converting level information", 1, 3, 0, 1));
 		convertLevelInfo(progress, srcDir, dstDir);
+		progress.setProgress(new ConvertProgress("Converting chunk data (counting chunks)", 2, 3, 0, 1));
 		convertChunkData(progress, srcDir, dstDir);
+		progress.setProgress(new ConvertProgress("Copying other files (counting files)", 3, 3, 0, 1));
 		copyAllOtherData(progress, srcDir, dstDir);
 	}
 
-	private void convertLevelInfo(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+	private void initDimensions(Path src) {
+		for (Dimension d : Dimensions.getDimensions()) {
+			Path srcLoc = LOCATION_FUNC_SRC.apply(d, src);
+			if (!Files.exists(srcLoc)) {
+				continue;
+			}
+			SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = new SaveSection<>(
+				new CachedRegionProvider<>(
+					new SimpleRegionProvider<>(LOCATION_FUNC_SRC.apply(d, src), (path, key) ->
+						Region.<MinecraftRegionLocation, MinecraftChunkLocation>builder()
+							.setPath(path)
+							.setSectorSize(4096)
+							.setEntriesPerRegion(key.getKeyCount())
+							.addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
+							.build(),
+						MinecraftRegionLocation::fromName
+					), 128
+				)
+			);
+			saves.put(d, vanillaSave);
+		}
+	}
+
+	private void convertLevelInfo(IProgressListener progress, Path srcDir, Path dstDir) throws IOException {
 		NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcDir.resolve("level.dat").toFile()));
 		CompoundTag root = (CompoundTag) nbtIn.readTag();
 		CompoundMap newRoot = new CompoundMap();
@@ -119,13 +164,13 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				newRoot.put(tag);
 			}
 		}
-
+		Files.createDirectories(dstDir);
 		NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()));
 		nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
 		nbtOut.close();
 	}
 
-	private void convertChunkData(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+	private void convertChunkData(IProgressListener progress, Path srcDir, Path dstDir) throws IOException {
 		int step = 0;
 		int maxSteps = Dimensions.getDimensions().size();
 		for (Dimension d : Dimensions.getDimensions()) {
@@ -133,35 +178,29 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			if (!Files.exists(srcLoc)) {
 				continue;
 			}
-			convertDimension(progress, srcLoc, LOCATION_FUNC_DST.apply(d, dstDir), step, maxSteps);
+			convertDimension(progress, d, LOCATION_FUNC_DST.apply(d, dstDir), step, maxSteps);
 			step++;
 		}
 	}
 
-	private void copyAllOtherData(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+	private void copyAllOtherData(IProgressListener progress, Path srcDir, Path dstDir) throws IOException {
 		Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
-			file.toString().contains("level.dat") ||
-				Dimensions.getDimensions().stream().anyMatch(dim ->
-					srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
-				)
+				file.toString().contains("level.dat") ||
+					Dimensions.getDimensions().stream().anyMatch(dim ->
+						srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
+					),
+			f -> {
+				copiedFiles++;
+				String msg = "Copying other files" + (countingFiles ? " (counting files)" : "");
+				double p = copiedFiles;
+				progress.setProgress(new ConvertProgress(msg, 3, 3, p, countingFiles ? -1 : fileCount));
+			}
 		);
 	}
 
-	private void convertDimension(IProgress progress, Path srcRegions, Path dstParent, int step, int maxSteps) throws IOException {
-		SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = new SaveSection<>(
-			new CachedRegionProvider<>(
-				new SimpleRegionProvider<>(srcRegions, (path, key) ->
-					Region.<MinecraftRegionLocation, MinecraftChunkLocation>builder()
-						.setPath(path)
-						.setSectorSize(4096)
-						.setEntriesPerRegion(key.getKeyCount())
-						.addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-						.build(),
-					MinecraftRegionLocation::fromName
-				), 128
-			)
-		);
+	private void convertDimension(IProgressListener progress, Dimension dim, Path dstParent, int step, int maxSteps) throws IOException {
 
+		SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = saves.get(dim);
 		SaveCubeColumns saveCubic = SaveCubeColumns.create(dstParent);
 
 		try {
@@ -178,7 +217,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		saveCubic.close();
 	}
 
-	private void convertRegion(IProgress progress, MinecraftRegionLocation loc,
+	private void convertRegion(IProgressListener progress, MinecraftRegionLocation loc,
 	                           SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave,
 	                           SaveCubeColumns saveCubic) throws IOException {
 		int baseX = loc.getX() << EntryLocation2D.LOC_BITS;
@@ -202,6 +241,10 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				if (column != null) {
 					saveCubic.save2d(new EntryLocation2D(entryLoc.getEntryX(), entryLoc.getEntryZ()), column);
 				}
+
+				convChunks++;
+				String msg = "Converting chunk data" + (countingChunks ? " (counting chunks)" : "");
+				progress.setProgress(new ConvertProgress(msg, 2, 3, convChunks, countingChunks ? -1 : chunkCount));
 			}
 		}
 	}
@@ -403,5 +446,41 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		nbtOut.writeTag(tag);
 		nbtOut.close();
 		return ByteBuffer.wrap(bytes.toByteArray());
+	}
+
+	private void startCounting(Path src) {
+		new Thread(() -> {
+			for (SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> save : saves.values()) {
+				try {
+					save.allRegions().forEachRemaining(r -> {
+						int baseX = r.getX() << MinecraftChunkLocation.LOC_BITS;
+						int baseZ = r.getZ() << MinecraftChunkLocation.LOC_BITS;
+						for (int dx = 0; dx < 32; dx++) {
+							for (int dz = 0; dz < 32; dz++) {
+								MinecraftChunkLocation entryLoc = new MinecraftChunkLocation(baseX + dx, baseZ + dz);
+								try {
+									if (save.hasEntry(entryLoc)) {
+										chunkCount++;
+									}
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+						}
+					});
+					countingChunks = false;
+				} catch (IOException e) {
+					e.printStackTrace();
+					countingChunks = true;
+				}
+				try {
+					fileCount = Utils.countFiles(src);
+					countingChunks = false;
+				} catch (IOException e) {
+					e.printStackTrace();
+					countingChunks = true;
+				}
+			}
+		}, "Chunk and File counting thread").start();
 	}
 }

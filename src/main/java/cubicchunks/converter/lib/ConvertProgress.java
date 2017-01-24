@@ -23,9 +23,38 @@
  */
 package cubicchunks.converter.lib;
 
-public interface IProgress {
-	/**
-	 * @param progress value between 0 and 1
-	 */
-	void setProgress(double progress);
+public class ConvertProgress {
+	private int step;
+	private final int maxSteps;
+	private double stepProgress;
+	private final double maxStepProgress;
+	private String stepName;
+
+	public ConvertProgress(String stepName, int step, int maxSteps, double stepProgress, double maxStepProgress) {
+		this.stepName = stepName;
+		this.step = step;
+		this.maxSteps = maxSteps;
+		this.stepProgress = stepProgress;
+		this.maxStepProgress = maxStepProgress;
+	}
+
+	public int getStep() {
+		return step;
+	}
+
+	public int getMaxSteps() {
+		return maxSteps;
+	}
+
+	public double getStepProgress() {
+		return stepProgress;
+	}
+
+	public double getMaxStepProgress() {
+		return maxStepProgress;
+	}
+
+	public String getStepName() {
+		return stepName;
+	}
 }
