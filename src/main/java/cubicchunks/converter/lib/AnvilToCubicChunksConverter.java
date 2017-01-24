@@ -27,14 +27,19 @@ import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import com.flowpowered.nbt.DoubleTag;
+import com.flowpowered.nbt.IntArrayTag;
 import com.flowpowered.nbt.IntTag;
 import com.flowpowered.nbt.ListTag;
+import com.flowpowered.nbt.StringTag;
+import com.flowpowered.nbt.Tag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -80,6 +85,47 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	@Override
 	public void convert(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+		convertLevelInfo(progress, srcDir, dstDir);
+		convertChunkData(progress, srcDir, dstDir);
+		copyAllOtherData(progress, srcDir, dstDir);
+	}
+
+	private void convertLevelInfo(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+		NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcDir.resolve("level.dat").toFile()));
+		CompoundTag root = (CompoundTag) nbtIn.readTag();
+		CompoundMap newRoot = new CompoundMap();
+		for (Tag<?> tag : root.getValue()) {
+			if (tag.getName().equals("Data")) {
+				CompoundMap data = ((CompoundTag) root.getValue().get("Data")).getValue();
+				CompoundMap newData = new CompoundMap();
+				for (Tag<?> dataTag : data) {
+					if (dataTag.getName().equals("generatorName")) {
+						String value = (String) dataTag.getValue();
+						String newValue;
+						if (value.equals("default")) {
+							newValue = "VanillaCubic";
+						} else if (value.equals("flat")) {
+							newValue = "FlatCubic";
+						} else {
+							throw new UnsupportedOperationException("Unsupported world type " + value);
+						}
+						newData.put(new StringTag(dataTag.getName(), newValue));
+					} else {
+						newData.put(dataTag);
+					}
+				}
+				newRoot.put(new CompoundTag(tag.getName(), newData));
+			} else {
+				newRoot.put(tag);
+			}
+		}
+
+		NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()));
+		nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
+		nbtOut.close();
+	}
+
+	private void convertChunkData(IProgress progress, Path srcDir, Path dstDir) throws IOException {
 		int step = 0;
 		int maxSteps = Dimensions.getDimensions().size();
 		for (Dimension d : Dimensions.getDimensions()) {
@@ -90,6 +136,15 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			convertDimension(progress, srcLoc, LOCATION_FUNC_DST.apply(d, dstDir), step, maxSteps);
 			step++;
 		}
+	}
+
+	private void copyAllOtherData(IProgress progress, Path srcDir, Path dstDir) throws IOException {
+		Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
+			file.toString().contains("level.dat") ||
+				Dimensions.getDimensions().stream().anyMatch(dim ->
+					srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
+				)
+		);
 	}
 
 	private void convertDimension(IProgress progress, Path srcRegions, Path dstParent, int step, int maxSteps) throws IOException {
@@ -257,12 +312,21 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					if (srcLevel.containsKey("TileTicks")) {
 						level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
 					}
+					level.put(makeLightingInfo(srcLevel));
 				}
 				root.put(new CompoundTag("Level", level));
 			}
 			tags[y] = new CompoundTag("", root);
 		}
 		return tags;
+	}
+
+	private CompoundTag makeLightingInfo(CompoundMap srcLevel) {
+		IntArrayTag heightmap = new IntArrayTag("LastHeightMap", (int[]) srcLevel.get("HeightMap").getValue());
+		CompoundMap lightingInfoMap = new CompoundMap();
+		lightingInfoMap.put(heightmap);
+		CompoundTag lightingInfo = new CompoundTag("LightingInfo", lightingInfoMap);
+		return lightingInfo;
 	}
 
 	private CompoundTag getSection(CompoundMap srcLevel, int y) {
