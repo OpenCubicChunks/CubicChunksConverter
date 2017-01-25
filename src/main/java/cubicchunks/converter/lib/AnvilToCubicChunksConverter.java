@@ -23,6 +23,7 @@
  */
 package cubicchunks.converter.lib;
 
+import com.flowpowered.nbt.ByteArrayTag;
 import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
@@ -38,6 +39,7 @@ import com.flowpowered.nbt.stream.NBTOutputStream;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -249,8 +251,87 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		}
 	}
 
-	private ByteBuffer extractColumnData(ByteBuffer vanillaData) {
-		return null;
+	private ByteBuffer extractColumnData(ByteBuffer vanillaData) throws IOException {
+		ByteArrayInputStream in = new ByteArrayInputStream(vanillaData.array());
+		CompoundTag tag = readCompressed(in);
+		CompoundTag columnTag = extractColumnData(tag);
+		return writeCompressed(columnTag);
+	}
+
+	private CompoundTag extractColumnData(CompoundTag tag) throws IOException {
+		/**
+		 *
+		 * Vanilla Chunk NBT structure:
+		 *
+		 * ROOT
+		 * |- DataVersion
+		 * |- Level
+		 *  |- v
+		 *  |- xPos
+		 *  |- zPos
+		 *  |- LastUpdate
+		 *  |- TerrainPopulated
+		 *  |- LightPopulated
+		 *  |- InhabitedTime
+		 *  |- Biomes
+		 *  |- HeightMap
+		 *  |- Sections
+		 *  ||* Section list:
+		 *  | |- Y
+		 *  | |- Blocks
+		 *  | |- Data
+		 *  | |- Add
+		 *  | |- BlockLight
+		 *  | |- SkyLight
+		 *  |- Entities
+		 *  |- TileEntities
+		 *  |- TileTicks
+		 *
+		 * CubicChunks Column format:
+		 *
+		 * ROOT
+		 * |- DataVersion
+		 * |- Level
+		 *  |- v
+		 *  |- x
+		 *  |- z
+		 *  |- InhabitedTime
+		 *  |- Biomes
+		 *  |- OpacityIndex
+		 */
+		CompoundMap levelMap = new CompoundMap();
+		CompoundMap srcLevel = (CompoundMap) tag.getValue().get("Level").getValue();
+
+		int[] srcHeightMap = (int[]) srcLevel.get("HeightMap").getValue();
+
+		levelMap.put(new IntTag("v", 1));
+		levelMap.put(new IntTag("x", (Integer) srcLevel.get("xPos").getValue()));
+		levelMap.put(new IntTag("z", (Integer) srcLevel.get("zPos").getValue()));
+		levelMap.put(srcLevel.get("InhabitedTime"));
+		levelMap.put(srcLevel.get("Biomes"));
+		levelMap.put(new ByteArrayTag("OpacityIndex", makeDummyOpacityIndex(srcHeightMap)));
+
+		CompoundMap rootMap = new CompoundMap();
+		rootMap.put(new CompoundTag("Level", levelMap));
+		rootMap.put(tag.getValue().get("DataVersion"));
+
+		CompoundTag root = new CompoundTag("", rootMap);
+
+		return root;
+	}
+
+	private byte[] makeDummyOpacityIndex(int[] heightMap) throws IOException {
+		ByteArrayOutputStream buf = new ByteArrayOutputStream();
+		DataOutputStream out = new DataOutputStream(buf);
+
+		for (int i = 0; i < 256; i++) { // 256 segment arrays
+			out.writeInt(0); // minY
+			out.writeInt(heightMap[i]); // maxY
+			out.writeShort(0); // no segments - write zero
+		}
+
+		out.close();
+		return buf.toByteArray();
 	}
 
 	private ByteBuffer[] extractCubeData(ByteBuffer vanillaData) throws IOException {
