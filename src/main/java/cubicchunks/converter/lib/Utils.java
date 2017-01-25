@@ -26,6 +26,7 @@ package cubicchunks.converter.lib;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -34,6 +35,23 @@ import java.util.function.Predicate;
 
 public class Utils {
 
+
+	public static boolean isValidPath(String text) {
+		try {
+			Files.exists(Paths.get(text));
+			return true;
+		} catch (InvalidPathException e) {
+			return false;
+		}
+	}
+
+	public static boolean fileExists(String text) {
+		try {
+			return Files.exists(Paths.get(text));
+		} catch (InvalidPathException e) {
+			return false;
+		}
+	}
 
 	public static int countFiles(Path f) throws IOException {
 		try {

@@ -335,17 +335,15 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				CompoundMap level = new CompoundMap();
 
 				{
-					// level.put(srcLevel.get("v"));
-					level.put("x", srcLevel.get("xPos"));
+					level.put(new ByteTag("v", (byte) 1));
+					level.put(new IntTag("x", (Integer) srcLevel.get("xPos").getValue()));
 					level.put(new IntTag("y", y));
-					level.put("z", srcLevel.get("zPos"));
+					level.put(new IntTag("z", (Integer) srcLevel.get("zPos").getValue()));
 
-					level.put("populated", srcLevel.get("TerrainPopulated"));
-					level.put("fullyPopulated", srcLevel.get("TerrainPopulated")); // TODO: handle this properly
+					level.put(new ByteTag("populated", (Byte) srcLevel.get("TerrainPopulated").getValue()));
+					level.put(new ByteTag("fullyPopulated", (Byte) srcLevel.get("TerrainPopulated").getValue())); // TODO: handle this properly
 
-					level.put("initLightDone", srcLevel.get("LightPopulated"));
-
-					level.put("initLightDone", srcLevel.get("LightPopulated"));
+					level.put(new ByteTag("initLightDone", (Byte) srcLevel.get("LightPopulated").getValue()));
 
 					// the vanilla section has additional Y tag, it will be ignored by cubic chunks
 					level.put(new ListTag<>("Sections", CompoundTag.class, Arrays.asList(srcSection)));
@@ -442,9 +440,10 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	private static ByteBuffer writeCompressed(CompoundTag tag) throws IOException {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		NBTOutputStream nbtOut = new NBTOutputStream(new GZIPOutputStream(bytes));
+		NBTOutputStream nbtOut = new NBTOutputStream(new GZIPOutputStream(bytes), false);
 		nbtOut.writeTag(tag);
 		nbtOut.close();
+		bytes.flush();
 		return ByteBuffer.wrap(bytes.toByteArray());
 	}
 

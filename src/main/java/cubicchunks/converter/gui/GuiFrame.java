@@ -24,11 +24,14 @@
 package cubicchunks.converter.gui;
 
 import java.awt.*;
-import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import cubicchunks.converter.lib.ConverterRegistry;
 import cubicchunks.converter.lib.SaveFormat;
@@ -36,12 +39,14 @@ import cubicchunks.converter.lib.Utils;
 
 public class GuiFrame extends JFrame {
 
-	private Path srcPath = Utils.getApplicationDirectory().resolve("saves").resolve("New World");
-	private Path dstPath = getDstForSrc();
+	private boolean isConverting = false;
 	private boolean hasChangedDst;
+
 	private JButton convertBtn;
 	private JProgressBar progressBar;
-	private boolean isConverting = false;
+
+	private JTextField srcPathField;
+	private JTextField dstPathField;
 
 	public void init() {
 		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -85,7 +90,7 @@ public class GuiFrame extends JFrame {
 		root.add(mainPanel, BorderLayout.CENTER);
 		root.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-		convertBtn.setEnabled(Files.exists(srcPath));
+		updateConvertBtn();
 		convertBtn.addActionListener(x -> convert());
 
 		progressBar.setPreferredSize(new Dimension(100, (int) convertBtn.getPreferredSize().getHeight()));
@@ -101,7 +106,15 @@ public class GuiFrame extends JFrame {
 
 	private void addSelectFilePanel(JPanel panel, boolean isSrc) {
 		JLabel label = new JLabel(isSrc ? "Source: " : "Destination: ");
+
+		Path srcPath = Utils.getApplicationDirectory().resolve("saves").resolve("New World");
+		Path dstPath = getDstForSrc(srcPath);
 		JTextField path = new JTextField((isSrc ? srcPath : dstPath).toString());
+		if (isSrc) {
+			this.srcPathField = path;
+		} else {
+			this.dstPathField = path;
+		}
 		JButton selectBtn = new JButton("...");
 
 		GridBagConstraints gbc = new GridBagConstraints();
@@ -132,29 +145,56 @@ public class GuiFrame extends JFrame {
 			chooser.setCurrentDirectory(getDefaultSaveLocation().toFile());
 			int result = chooser.showDialog(this, "Select");
 			if (result == JFileChooser.APPROVE_OPTION) {
-				Path file = chooser.getSelectedFile().toPath();
-				path.setText(file.toString());
-
-				convertBtn.setEnabled(!isConverting && Files.exists(srcPath));
-				if (isSrc) {
-					srcPath = file;
-					if (!hasChangedDst) {
-						dstPath = getDstForSrc();
-					}
-				} else {
-					dstPath = file;
-					hasChangedDst = true;
-				}
+				onSelectLocation(isSrc, chooser);
 			}
 		});
 		selectBtn.setPreferredSize(new Dimension(30, (int) path.getPreferredSize().getHeight()));
 		selectBtn.setMinimumSize(new Dimension(30, (int) path.getPreferredSize().getHeight()));
 
+		path.getDocument().addDocumentListener(new DocumentListener() {
+
+			@Override public void insertUpdate(DocumentEvent e) {
+				update();
+			}
+			@Override public void removeUpdate(DocumentEvent e) {
+				update();
+			}
+			@Override public void changedUpdate(DocumentEvent e) {
+				update();
+			}
+			private void update() {
+				if (!isSrc) {
+					hasChangedDst = true;
+				}
+				updateConvertBtn();
+			}
+		});
+
+
 		label.setHorizontalAlignment(SwingConstants.RIGHT);
 	}
 
-	private Path getDstForSrc() {
-		return srcPath.getParent().resolve(srcPath.getFileName().toString() + " - CubicChunks");
+	private void updateConvertBtn() {
+		convertBtn.setEnabled(!isConverting && Utils.isValidPath(dstPathField.getText()) && Utils.fileExists(srcPathField.getText()));
+	}
+
+	private void onSelectLocation(boolean isSrc, JFileChooser chooser) {
+		Path file = chooser.getSelectedFile().toPath();
+
+		if (isSrc) {
+			srcPathField.setText(file.toString());
+			if (!hasChangedDst) {
+				dstPathField.setText(getDstForSrc(file).toString());
+			}
+		} else {
+			dstPathField.setText(file.toString());
+			hasChangedDst = true;
+		}
+		updateConvertBtn();
+	}
+
+	private Path getDstForSrc(Path src) {
+		return src.getParent().resolve(src.getFileName().toString() + " - CubicChunks");
 	}
 
 	private Path getDefaultSaveLocation() {
@@ -162,15 +202,27 @@ public class GuiFrame extends JFrame {
 	}
 
 	private void convert() {
+		if (!Utils.fileExists(srcPathField.getText())) {
+			updateConvertBtn();
+			return;
+		}
+		Path srcPath = Paths.get(srcPathField.getText());
+		Path dstPath;
+		try {
+			dstPath = Paths.get(dstPathField.getText());
+		} catch (InvalidPathException e) {
+			updateConvertBtn();
+			return;
+		}
 		progressBar.setMaximum(100);
 		progressBar.setStringPainted(true);
-		convertBtn.setEnabled(false);
 		isConverting = true;
+		updateConvertBtn();
 		ConverterWorker w = new ConverterWorker(ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS), srcPath, dstPath, progressBar, () -> {
-			convertBtn.setEnabled(true);
 			isConverting = false;
 			progressBar.setString("Done!");
 			progressBar.setValue(0);
+			updateConvertBtn();
 		});
 		w.execute();
 	}
