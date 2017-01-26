@@ -52,22 +52,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
 
-import cubicchunks.regionlib.SaveSection;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
-import cubicchunks.regionlib.impl.MinecraftRegionLocation;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
-import cubicchunks.regionlib.region.Region;
-import cubicchunks.regionlib.region.header.TimestampHeaderEntryProvider;
-import cubicchunks.regionlib.region.provider.CachedRegionProvider;
-import cubicchunks.regionlib.region.provider.SimpleRegionProvider;
+import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
 import cubicchunks.regionlib.util.WrappedException;
 
 public class AnvilToCubicChunksConverter implements ISaveConverter {
@@ -91,7 +85,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	private int convChunks = -1;
 	private int copiedFiles = -1;
-	private Map<Dimension, SaveSection<MinecraftRegionLocation, MinecraftChunkLocation>> saves = new ConcurrentHashMap<>();
+	private Map<Dimension, MinecraftSaveSection> saves = new ConcurrentHashMap<>();
 	private boolean countingFiles;
 	private boolean countingChunks;
 
@@ -120,19 +114,8 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			if (!Files.exists(srcLoc)) {
 				continue;
 			}
-			SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = new SaveSection<>(
-				new CachedRegionProvider<>(
-					new SimpleRegionProvider<>(LOCATION_FUNC_SRC.apply(d, src), (path, key) ->
-						Region.<MinecraftRegionLocation, MinecraftChunkLocation>builder()
-							.setPath(path)
-							.setSectorSize(4096)
-							.setEntriesPerRegion(key.getKeyCount())
-							.addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-							.build(),
-						MinecraftRegionLocation::fromName
-					), 128
-				)
-			);
+
+			MinecraftSaveSection vanillaSave = MinecraftSaveSection.createAt(LOCATION_FUNC_SRC.apply(d, src));
 			saves.put(d, vanillaSave);
 		}
 	}
@@ -202,13 +185,13 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	private void convertDimension(IProgressListener progress, Dimension dim, Path dstParent, int step, int maxSteps) throws IOException {
 
-		SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave = saves.get(dim);
+		MinecraftSaveSection vanillaSave = saves.get(dim);
 		SaveCubeColumns saveCubic = SaveCubeColumns.create(dstParent);
 
 		try {
-			vanillaSave.allRegions().forEachRemaining(loc -> {
+			vanillaSave.forAllRegions(regionName -> {
 				try {
-					this.convertRegion(progress, loc, vanillaSave, saveCubic);
+					this.convertRegion(progress, regionName, vanillaSave, saveCubic);
 				} catch (IOException e) {
 					throw new WrappedException(e);
 				}
@@ -219,14 +202,12 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		saveCubic.close();
 	}
 
-	private void convertRegion(IProgressListener progress, MinecraftRegionLocation loc,
-	                           SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> vanillaSave,
+	private void convertRegion(IProgressListener progress, String regionName,
+	                           MinecraftSaveSection vanillaSave,
 	                           SaveCubeColumns saveCubic) throws IOException {
-		int baseX = loc.getX() << EntryLocation2D.LOC_BITS;
-		int baseZ = loc.getZ() << EntryLocation2D.LOC_BITS;
 		for (int dx = 0; dx < 32; dx++) {
 			for (int dz = 0; dz < 32; dz++) {
-				MinecraftChunkLocation entryLoc = new MinecraftChunkLocation(baseX + dx, baseZ + dz);
+				MinecraftChunkLocation entryLoc = MinecraftChunkLocation.fromRelative(regionName, dx, dz);
 				ByteBuffer vanillaData = vanillaSave.load(entryLoc).orElse(null);
 				if (vanillaData == null) {
 					continue;
@@ -237,7 +218,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					if (cubes[y] == null) {
 						continue;
 					}
-					EntryLocation3D l = new EntryLocation3D(baseX + dx, y, baseZ + dz);
+					EntryLocation3D l = new EntryLocation3D(entryLoc.getEntryX(), y, entryLoc.getEntryZ());
 					saveCubic.save3d(l, cubes[y]);
 				}
 				if (column != null) {
@@ -530,14 +511,12 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	private void startCounting(Path src) {
 		new Thread(() -> {
-			for (SaveSection<MinecraftRegionLocation, MinecraftChunkLocation> save : saves.values()) {
+			for (MinecraftSaveSection save : saves.values()) {
 				try {
-					save.allRegions().forEachRemaining(r -> {
-						int baseX = r.getX() << MinecraftChunkLocation.LOC_BITS;
-						int baseZ = r.getZ() << MinecraftChunkLocation.LOC_BITS;
+					save.forAllRegions(name -> {
 						for (int dx = 0; dx < 32; dx++) {
 							for (int dz = 0; dz < 32; dz++) {
-								MinecraftChunkLocation entryLoc = new MinecraftChunkLocation(baseX + dx, baseZ + dz);
+								MinecraftChunkLocation entryLoc = MinecraftChunkLocation.fromRelative(name, dx, dz);
 								try {
 									if (save.hasEntry(entryLoc)) {
 										chunkCount++;
