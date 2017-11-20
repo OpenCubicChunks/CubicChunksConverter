@@ -404,6 +404,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 					level.put(new ByteTag("populated", (Byte) srcLevel.get("TerrainPopulated").getValue()));
 					level.put(new ByteTag("fullyPopulated", (Byte) srcLevel.get("TerrainPopulated").getValue())); // TODO: handle this properly
+					level.put(new ByteTag("isSurfaceTracked", (byte) 0)); // so that cubic chunks can re-make surface tracking data on it's own
 
 					level.put(new ByteTag("initLightDone", (Byte) srcLevel.get("LightPopulated").getValue()));
 
