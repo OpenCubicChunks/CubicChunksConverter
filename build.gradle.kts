@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.ShadowPlugin
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import nl.javadude.gradle.plugins.license.LicenseExtension
 import nl.javadude.gradle.plugins.license.LicensePlugin
 import org.ajoberstar.grgit.Grgit
@@ -19,6 +21,7 @@ buildscript {
     dependencies {
         classpath("org.ajoberstar:grgit:1.4.+")
         classpath("gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1")
+        classpath("com.github.jengelman.gradle.plugins:shadow:1.2.3")
     }
 }
 
@@ -28,9 +31,13 @@ version = getProjectVersion()
 val licenseYear = properties["licenseYear"] as String
 val projectName = properties["projectName"] as String
 
+val shadowJar: ShadowJar by tasks
+val jar: Jar by tasks
+
 apply {
     plugin<JavaPlugin>()
     plugin<LicensePlugin>()
+    plugin<ShadowPlugin>()
 }
 
 configure<JavaPluginConvention> {
@@ -66,22 +73,46 @@ dependencies {
     testCompile("junit:junit:4.11")
 }
 
+jar.apply {
+    manifest.apply {
+        attributes["Main-Class"] = "cubicchunks.converter.gui.ConverterGui"
+    }
+}
+
+tasks["build"].dependsOn(shadowJar)
+
 //returns version string according to this: http://semver.org/
 //format: MAJOR.MINOR.PATCH
 fun getProjectVersion(): String {
     try {
         val git = Grgit.open()
         val describe = DescribeOp(git.repository).call()
-        val branch = git.branch.current.name
+        val branch = getGitBranch(git)
         return getVersion_do(describe, branch);
-    } catch(ex: RepositoryNotFoundException) {
-        logger.error("Git repository not found! Version will be incorrect!")
-        return getVersion_do("v9999-9999-gffffff", "localbuild")
-    } catch(ex: GrgitException) {
-        logger.error("Error getting version!")
-        ex.printStackTrace()
-        return getVersion_do("v9999-9999-gffffff", "localbuild")
+    } catch (ex: RuntimeException) {
+        logger.error("Unknown error when accessing git repository! Are you sure the git repository exists?", ex)
+        return String.format("v9999-9999-gffffff", "localbuild")
     }
+}
+
+fun getGitBranch(git: Grgit): String {
+    var branch: String = git.branch.current.name
+    if (branch.equals("HEAD")) {
+        branch = when {
+            System.getenv("TRAVIS_BRANCH")?.isEmpty() == false -> // travis
+                System.getenv("TRAVIS_BRANCH")
+            System.getenv("GIT_BRANCH")?.isEmpty() == false -> // jenkins
+                System.getenv("GIT_BRANCH")
+            System.getenv("BRANCH_NAME")?.isEmpty() == false -> // ??? another jenkins alternative?
+                System.getenv("BRANCH_NAME")
+            else -> throw RuntimeException("Found HEAD branch! This is most likely caused by detached head state! Will assume unknown version!")
+        }
+    }
+
+    if (branch.startsWith("origin/")) {
+        branch = branch.substring("origin/".length)
+    }
+    return branch
 }
 
 fun getVersion_do(describe: String, branch: String): String {
