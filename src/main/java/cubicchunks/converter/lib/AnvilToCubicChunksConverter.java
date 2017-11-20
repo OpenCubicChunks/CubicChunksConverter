@@ -283,7 +283,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		CompoundMap levelMap = new CompoundMap();
 		CompoundMap srcLevel = (CompoundMap) tag.getValue().get("Level").getValue();
 
-		int[] srcHeightMap = (int[]) srcLevel.get("HeightMap").getValue();
+		int[] srcHeightMap = fixHeightmap((int[]) srcLevel.get("HeightMap").getValue());
 
 		levelMap.put(new IntTag("v", 1));
 		levelMap.put(new IntTag("x", (Integer) srcLevel.get("xPos").getValue()));
@@ -299,6 +299,13 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		CompoundTag root = new CompoundTag("", rootMap);
 
 		return root;
+	}
+
+	private int[] fixHeightmap(int[] heights) {
+		for (int i = 0; i < heights.length; i++) {
+			heights[i]--; // vanilla = 1 above top, cc = top block
+		}
+		return heights;
 	}
 
 	private byte[] makeDummyOpacityIndex(int[] heightMap) throws IOException {
@@ -409,7 +416,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					level.put(new ByteTag("initLightDone", (Byte) srcLevel.get("LightPopulated").getValue()));
 
 					// the vanilla section has additional Y tag, it will be ignored by cubic chunks
-					level.put(new ListTag<>("Sections", CompoundTag.class, Arrays.asList(srcSection)));
+					level.put(new ListTag<>("Sections", CompoundTag.class, Arrays.asList(fixSection(srcSection))));
 
 					level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
 					level.put(filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y));
@@ -423,6 +430,18 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			tags[y] = new CompoundTag("", root);
 		}
 		return tags;
+	}
+
+	private CompoundTag fixSection(CompoundTag srcSection) {
+		ByteArrayTag data = (ByteArrayTag) srcSection.getValue().get("Blocks");
+		byte[] ids = data.getValue();
+		// TODO: handle it the forge way
+		for (int i = 0; i < ids.length; i++) {
+			if (ids[i] == 7) { // bedrock
+				ids[i] = 1; // stone
+			}
+		}
+		return srcSection;
 	}
 
 	private CompoundTag makeLightingInfo(CompoundMap srcLevel) {

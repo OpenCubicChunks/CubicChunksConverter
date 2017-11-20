@@ -87,6 +87,15 @@ public class GuiFrame extends JFrame {
 		gbc.fill = GridBagConstraints.HORIZONTAL;
 		mainPanel.add(progressBar, gbc);
 
+		gbc.gridx = 0;
+		gbc.gridy = 2;
+		gbc.gridwidth = 1;
+		gbc.weightx = 1;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		JLabel label = new JLabel("WARNING: USE ON MODDED WORLDS AT YOUR OWN RISK! THIS IS NOT DESIGNED TO HANDLE THEM!");
+		label.setForeground(Color.RED);
+		mainPanel.add(label, gbc);
+
 		root.add(mainPanel, BorderLayout.CENTER);
 		root.setBorder(new EmptyBorder(10, 10, 10, 10));
 
