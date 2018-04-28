@@ -106,6 +106,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		convertChunkData(progress, srcDir, dstDir);
 		progress.setProgress(new ConvertProgress("Copying other files (counting files)", 3, 3, 0, 1));
 		copyAllOtherData(progress, srcDir, dstDir);
+		for (MinecraftSaveSection save : saves.values()) {
+			save.close();
+		}
 	}
 
 	private void initDimensions(Path src) {
@@ -132,12 +135,11 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 					if (dataTag.getName().equals("generatorName")) {
 						String value = (String) dataTag.getValue();
 						String newValue;
-						if (value.equals("default")) {
+						if (value.equalsIgnoreCase("default")) {
 							newValue = "VanillaCubic";
-						} else if (value.equals("flat")) {
-							newValue = "FlatCubic";
 						} else {
-							throw new UnsupportedOperationException("Unsupported world type " + value);
+							newValue = value;
+							newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
 						}
 						newData.put(new StringTag(dataTag.getName(), newValue));
 					} else {
@@ -186,9 +188,8 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	private void convertDimension(IProgressListener progress, Dimension dim, Path dstParent, int step, int maxSteps) throws IOException {
 
 		MinecraftSaveSection vanillaSave = saves.get(dim);
-		SaveCubeColumns saveCubic = SaveCubeColumns.create(dstParent);
 
-		try {
+		try(SaveCubeColumns saveCubic = SaveCubeColumns.create(dstParent)) {
 			vanillaSave.forAllRegions(regionName -> {
 				try {
 					this.convertRegion(progress, regionName, vanillaSave, saveCubic);
@@ -199,7 +200,6 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		} catch (WrappedException e) {
 			throw (IOException) e.get();
 		}
-		saveCubic.close();
 	}
 
 	private void convertRegion(IProgressListener progress, String regionName,
@@ -294,7 +294,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 		CompoundMap rootMap = new CompoundMap();
 		rootMap.put(new CompoundTag("Level", levelMap));
-		rootMap.put(tag.getValue().get("DataVersion"));
+		if (tag.getValue().containsKey("DataVersion")) {
+			rootMap.put(tag.getValue().get("DataVersion"));
+		}
 
 		CompoundTag root = new CompoundTag("", rootMap);
 
@@ -400,7 +402,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			}
 			CompoundMap root = new CompoundMap();
 			{
-				root.put(srcRoot.get("DataVersion"));
+				if (srcRoot.containsKey("DataVersion")) {
+					root.put(srcRoot.get("DataVersion"));
+				}
 				CompoundMap level = new CompoundMap();
 
 				{

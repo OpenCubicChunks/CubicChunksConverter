@@ -23,15 +23,19 @@
  */
 package cubicchunks.converter.gui;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.*;
 
 import cubicchunks.converter.lib.ConvertProgress;
 import cubicchunks.converter.lib.ISaveConverter;
 
-public class ConverterWorker extends SwingWorker<Void, ConvertProgress> {
+public class ConverterWorker extends SwingWorker<Throwable, ConvertProgress> {
 	private final ISaveConverter converter;
 	private final Path srcPath;
 	private final Path dstPath;
@@ -46,8 +50,13 @@ public class ConverterWorker extends SwingWorker<Void, ConvertProgress> {
 		this.onDone = onDone;
 	}
 
-	@Override protected Void doInBackground() throws Exception {
-		this.converter.convert(this::publish, srcPath, dstPath);
+	@Override protected Throwable doInBackground() throws Exception {
+		try {
+			this.converter.convert(this::publish, srcPath, dstPath);
+		} catch(Throwable t) {
+			t.printStackTrace();
+			return t;
+		}
 		return null;
 	}
 
@@ -57,13 +66,40 @@ public class ConverterWorker extends SwingWorker<Void, ConvertProgress> {
 		if (p.getStepProgress() < 0) {
 			progress = 0;
 		} else {
-			progress = p.getStepProgress()/p.getMaxStepProgress();
+			progress = 100*p.getStepProgress()/p.getMaxStepProgress();
 		}
 		String message = String.format("Step %d of %d: %s: %.2f%%", p.getStep(), p.getMaxSteps(), p.getStepName(), progress);
-		this.progressBar.setValue((int) (progress*100));
+		this.progressBar.setValue((int) (progress));
 		this.progressBar.setString(message);
 	}
+
+	@Override
 	protected void done() {
 		onDone.run();
+		Throwable t;
+		try {
+			t = get();
+		} catch (InterruptedException | ExecutionException e) {
+			t = e;
+		}
+		if (t == null) {
+			return;
+		}
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		PrintStream ps;
+		try {
+			ps = new PrintStream(out, true, "UTF-8");
+		} catch (UnsupportedEncodingException e1) {
+			throw new Error(e1);
+		}
+		t.printStackTrace(ps);
+		ps.close();
+		String str;
+		try {
+			str = new String(out.toByteArray(), "UTF-8");
+		} catch (UnsupportedEncodingException e1) {
+			throw new Error(e1);
+		}
+		JOptionPane.showMessageDialog(null, str);
 	}
 }
