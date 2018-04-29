@@ -10,6 +10,10 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.internal.HasConvention
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.plugins.JavaPluginConvention
+import org.gradle.api.tasks.Upload
+import org.gradle.plugins.signing.Sign
+import org.gradle.plugins.signing.SigningExtension
+import org.gradle.plugins.signing.SigningPlugin
 import org.gradle.script.lang.kotlin.*
 
 buildscript {
@@ -36,9 +40,14 @@ val jar: Jar by tasks
 
 apply {
     plugin<JavaPlugin>()
+    plugin<MavenPlugin>()
+    plugin<SigningPlugin>()
     plugin<LicensePlugin>()
     plugin<ShadowPlugin>()
 }
+
+val sourceSets = the<JavaPluginConvention>().sourceSets!!
+
 
 configure<JavaPluginConvention> {
     setSourceCompatibility(JavaVersion.VERSION_1_8)
@@ -79,7 +88,99 @@ jar.apply {
     }
 }
 
+val javadocJar by tasks.creating(Jar::class) {
+    classifier = "javadoc"
+    from(tasks["javadoc"])
+}
+val sourcesJar by tasks.creating(Jar::class) {
+    classifier = "sources"
+    from(sourceSets["main"].java.srcDirs)
+}
+
+
 tasks["build"].dependsOn(shadowJar)
+
+val signing: SigningExtension by extensions
+signing.apply {
+    isRequired = false
+    // isRequired = gradle.taskGraph.hasTask("uploadArchives")
+    sign(configurations.archives)
+}
+
+// based on:
+// https://github.com/Ordinastie/MalisisCore/blob/30d8efcfd047ac9e9bc75dfb76642bd5977f0305/build.gradle#L204-L256
+// https://github.com/gradle/kotlin-dsl/blob/201534f53d93660c273e09f768557220d33810a9/samples/maven-plugin/build.gradle.kts#L10-L44
+val uploadArchives: Upload by tasks
+uploadArchives.apply {
+    repositories {
+        withConvention(MavenRepositoryHandlerConvention::class) {
+            mavenDeployer {
+                // Sign Maven POM
+                beforeDeployment {
+                    signing.signPom(this)
+                }
+
+                val username = if (project.hasProperty("sonatypeUsername")) project.properties["sonatypeUsername"] else System.getenv("sonatypeUsername")
+                val password = if (project.hasProperty("sonatypePassword")) project.properties["sonatypePassword"] else System.getenv("sonatypePassword")
+
+                withGroovyBuilder {
+                    "snapshotRepository"("url" to "https://oss.sonatype.org/content/repositories/snapshots") {
+                        "authentication"("userName" to username, "password" to password)
+                    }
+
+                    "repository"("url" to "https://oss.sonatype.org/service/local/staging/deploy/maven2") {
+                        "authentication"("userName" to username, "password" to password)
+                    }
+                }
+
+                // Maven POM generation
+                pom.project {
+                    withGroovyBuilder {
+                        "name"(projectName)
+                        "artifactId"(base.archivesBaseName.toLowerCase())
+                        "packaging"("jar")
+                        "url"("https://github.com/OpenCubicChunks/CubicChunksConverter")
+                        "description"("Save converter from vanilla Minecraft to cubic chunks")
+
+
+                        "scm" {
+                            "connection"("scm:git:git://github.com/OpenCubicChunks/CubicChunksConverter.git")
+                            "developerConnection"("scm:git:ssh://git@github.com:OpenCubicChunks/CubicChunksConverter.git")
+                            "url"("https://github.com/OpenCubicChunks/CubicChunksConverter")
+                        }
+
+                        "licenses" {
+                            "license" {
+                                "name"("The MIT License")
+                                "url"("http://www.tldrlegal.com/license/mit-license")
+                                "distribution"("repo")
+                            }
+                        }
+
+                        "developers" {
+                            "developer" {
+                                "id"("Barteks2x")
+                                "name"("Barteks2x")
+                            }
+                        }
+
+                        "issueManagement" {
+                            "system"("github")
+                            "url"("https://github.com/OpenCubicChunks/CubicChunksConverter/issues")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// tasks must be before artifacts, don't change the order
+artifacts {
+    withGroovyBuilder {
+        "archives"(tasks["jar"], sourcesJar, javadocJar)
+    }
+}
 
 //returns version string according to this: http://semver.org/
 //format: MAJOR.MINOR.PATCH
