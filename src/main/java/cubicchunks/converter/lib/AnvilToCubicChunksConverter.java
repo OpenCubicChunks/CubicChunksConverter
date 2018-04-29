@@ -207,7 +207,6 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	private void convertRegion(IProgressListener progress, MinecraftChunkLocation entryLoc,
 	                           MinecraftSaveSection vanillaSave,
 	                           SaveCubeColumns saveCubic) throws IOException {
-		System.err.println(entryLoc);
 		ByteBuffer vanillaData = vanillaSave.load(entryLoc).get();
 		ByteBuffer[] cubes = extractCubeData(vanillaData);
 		ByteBuffer column = extractColumnData(vanillaData);
