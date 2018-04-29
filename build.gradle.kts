@@ -29,7 +29,7 @@ buildscript {
     }
 }
 
-group = "cubicchunks"
+group = "io.github.opencubicchunks"
 version = getProjectVersion()
 
 val licenseYear = properties["licenseYear"] as String
@@ -78,7 +78,7 @@ repositories {
 
 dependencies {
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
-    compile(project("RegionLib"))
+    compile("io.github.opencubicchunks:regionlib:0.46.0-SNAPSHOT")
     testCompile("junit:junit:4.11")
 }
 
