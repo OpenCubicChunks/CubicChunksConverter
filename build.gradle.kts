@@ -189,7 +189,8 @@ fun getProjectVersion(): String {
         val git = Grgit.open()
         val describe = DescribeOp(git.repository).call()
         val branch = getGitBranch(git)
-        return getVersion_do(describe, branch);
+        val snapshotSuffix = if (project.hasProperty("doRelease")) "" else "-SNAPSHOT"
+        return getVersion_do(describe, branch) + snapshotSuffix
     } catch (ex: RuntimeException) {
         logger.error("Unknown error when accessing git repository! Are you sure the git repository exists?", ex)
         return String.format("v9999-9999-gffffff", "localbuild")
