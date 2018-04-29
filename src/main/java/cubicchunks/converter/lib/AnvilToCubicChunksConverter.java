@@ -64,6 +64,8 @@ import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
 import cubicchunks.regionlib.util.WrappedException;
 
+import static cubicchunks.regionlib.impl.save.MinecraftSaveSection.MinecraftRegionType.MCA;
+
 public class AnvilToCubicChunksConverter implements ISaveConverter {
 
 	private static final BiFunction<Dimension, Path, Path> LOCATION_FUNC_SRC = (d, p) -> {
@@ -118,7 +120,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 				continue;
 			}
 
-			MinecraftSaveSection vanillaSave = MinecraftSaveSection.createAt(LOCATION_FUNC_SRC.apply(d, src));
+			MinecraftSaveSection vanillaSave = MinecraftSaveSection.createAt(LOCATION_FUNC_SRC.apply(d, src), MCA);
 			saves.put(d, vanillaSave);
 		}
 	}
@@ -190,9 +192,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		MinecraftSaveSection vanillaSave = saves.get(dim);
 
 		try(SaveCubeColumns saveCubic = SaveCubeColumns.create(dstParent)) {
-			vanillaSave.forAllRegions(regionName -> {
+			vanillaSave.forAllKeys(mcPos -> {
 				try {
-					this.convertRegion(progress, regionName, vanillaSave, saveCubic);
+					this.convertRegion(progress, mcPos, vanillaSave, saveCubic);
 				} catch (IOException e) {
 					throw new WrappedException(e);
 				}
@@ -202,34 +204,27 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		}
 	}
 
-	private void convertRegion(IProgressListener progress, String regionName,
+	private void convertRegion(IProgressListener progress, MinecraftChunkLocation entryLoc,
 	                           MinecraftSaveSection vanillaSave,
 	                           SaveCubeColumns saveCubic) throws IOException {
-		for (int dx = 0; dx < 32; dx++) {
-			for (int dz = 0; dz < 32; dz++) {
-				MinecraftChunkLocation entryLoc = MinecraftChunkLocation.fromRelative(regionName, dx, dz);
-				ByteBuffer vanillaData = vanillaSave.load(entryLoc).orElse(null);
-				if (vanillaData == null) {
-					continue;
-				}
-				ByteBuffer[] cubes = extractCubeData(vanillaData);
-				ByteBuffer column = extractColumnData(vanillaData);
-				for (int y = 0; y < cubes.length; y++) {
-					if (cubes[y] == null) {
-						continue;
-					}
-					EntryLocation3D l = new EntryLocation3D(entryLoc.getEntryX(), y, entryLoc.getEntryZ());
-					saveCubic.save3d(l, cubes[y]);
-				}
-				if (column != null) {
-					saveCubic.save2d(new EntryLocation2D(entryLoc.getEntryX(), entryLoc.getEntryZ()), column);
-				}
-
-				convChunks++;
-				String msg = "Converting chunk data" + (countingChunks ? " (counting chunks)" : "");
-				progress.setProgress(new ConvertProgress(msg, 2, 3, convChunks, countingChunks ? -1 : chunkCount));
+		System.err.println(entryLoc);
+		ByteBuffer vanillaData = vanillaSave.load(entryLoc).get();
+		ByteBuffer[] cubes = extractCubeData(vanillaData);
+		ByteBuffer column = extractColumnData(vanillaData);
+		for (int y = 0; y < cubes.length; y++) {
+			if (cubes[y] == null) {
+				continue;
 			}
+			EntryLocation3D l = new EntryLocation3D(entryLoc.getEntryX(), y, entryLoc.getEntryZ());
+			saveCubic.save3d(l, cubes[y]);
 		}
+		if (column != null) {
+			saveCubic.save2d(new EntryLocation2D(entryLoc.getEntryX(), entryLoc.getEntryZ()), column);
+		}
+
+		convChunks++;
+		String msg = "Converting chunk data" + (countingChunks ? " (counting chunks)" : "");
+		progress.setProgress(new ConvertProgress(msg, 2, 3, convChunks, countingChunks ? -1 : chunkCount));
 	}
 
 	private ByteBuffer extractColumnData(ByteBuffer vanillaData) throws IOException {
@@ -537,33 +532,18 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		new Thread(() -> {
 			for (MinecraftSaveSection save : saves.values()) {
 				try {
-					save.forAllRegions(name -> {
-						for (int dx = 0; dx < 32; dx++) {
-							for (int dz = 0; dz < 32; dz++) {
-								MinecraftChunkLocation entryLoc = MinecraftChunkLocation.fromRelative(name, dx, dz);
-								try {
-									if (save.hasEntry(entryLoc)) {
-										chunkCount++;
-									}
-								} catch (IOException e) {
-									e.printStackTrace();
-								}
-							}
-						}
-					});
-					countingChunks = false;
+					// increment is non-atomic but it's safe here because we don't need it to be anywhere close to correct while counting
+					save.forAllKeys(loc -> chunkCount++);
 				} catch (IOException e) {
 					e.printStackTrace();
-					countingChunks = true;
 				}
 				try {
 					fileCount = Utils.countFiles(src);
-					countingChunks = false;
 				} catch (IOException e) {
 					e.printStackTrace();
-					countingChunks = true;
 				}
 			}
+			countingChunks = false;
 		}, "Chunk and File counting thread").start();
 	}
 }
