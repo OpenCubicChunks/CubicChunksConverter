@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,6 +63,8 @@ import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
+import cubicchunks.regionlib.impl.save.SaveSection2D;
+import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.util.WrappedException;
 
 import static cubicchunks.regionlib.impl.save.MinecraftSaveSection.MinecraftRegionType.MCA;
@@ -85,7 +88,7 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 	private volatile int chunkCount = -1;
 	private volatile int fileCount = -1;
 
-	private int convChunks = -1;
+	private int copyChunks = -1;
 	private int copiedFiles = -1;
 	private Map<Dimension, MinecraftSaveSection> saves = new ConcurrentHashMap<>();
 	private boolean countingFiles;
@@ -98,19 +101,93 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		countingChunks = true;
 		fileCount = 0;
 		countingFiles = true;
-		convChunks = 0;
+		copyChunks = 0;
 		copiedFiles = 0;
 		initDimensions(srcDir);
 		startCounting(srcDir);
-		progress.setProgress(new ConvertProgress("Converting level information", 1, 3, 0, 1));
+		progress.setProgress(new ConvertProgress("Converting level information", 1, 4, 0, 1));
 		convertLevelInfo(progress, srcDir, dstDir);
-		progress.setProgress(new ConvertProgress("Converting chunk data (counting chunks)", 2, 3, 0, 1));
+		progress.setProgress(new ConvertProgress("Converting chunk data (counting chunks)", 2, 4, 0, 1));
 		convertChunkData(progress, srcDir, dstDir);
-		progress.setProgress(new ConvertProgress("Copying other files (counting files)", 3, 3, 0, 1));
+		progress.setProgress(new ConvertProgress("Copying other files (counting files)", 3, 4, 0, 1));
 		copyAllOtherData(progress, srcDir, dstDir);
 		for (MinecraftSaveSection save : saves.values()) {
 			save.close();
 		}
+		fillVanillaRangeEmpty(progress, dstDir);
+	}
+
+	private void fillVanillaRangeEmpty(IProgressListener progress, Path dstDir) throws IOException {
+		progress.setProgress(new ConvertProgress("Filling vanilla height range with empty cubes", 3, 4, 0, 1));
+
+		copyChunks = 0;
+		for (Dimension d : Dimensions.getDimensions()) {
+			Path dimLoc = LOCATION_FUNC_DST.apply(d, dstDir);
+			if (!Files.exists(dimLoc)) {
+				continue;
+			}
+
+			Files.createDirectories(dimLoc.resolve("region2d"));
+			Files.createDirectories(dimLoc.resolve("region3d"));
+			try (SaveSection2D section2d = SaveSection2D.createAt(dimLoc.resolve("region2d"));
+			     SaveSection3D section3d = SaveSection3D.createAt(dimLoc.resolve("region3d"))) {
+				section2d.forAllKeys(pos -> {
+					for (int y = 0; y < 16; y++) {
+						EntryLocation3D cPos = new EntryLocation3D(pos.getEntryX(), y, pos.getEntryZ());
+						if (!section3d.load(cPos).isPresent()) {
+							section3d.save(cPos, writeCompressed(emptyCube(cPos)));
+						}
+					}
+					copyChunks++;
+					String msg = "Filling vanilla height range with empty cubes" + (countingChunks ? " (counting chunks)" : "");
+					progress.setProgress(new ConvertProgress(msg, 4, 4, copyChunks, countingChunks ? -1 : (chunkCount == 0 ? 100 : chunkCount)));
+
+				});
+			} catch (WrappedException e) {
+				throw (IOException) e.get();
+			}
+		}
+	}
+
+	private CompoundTag emptyCube(EntryLocation3D loc) {
+
+		int x = loc.getEntryX();
+		int y = loc.getEntryY();
+		int z = loc.getEntryZ();
+
+		CompoundMap root = new CompoundMap();
+		{
+			CompoundMap level = new CompoundMap();
+
+			{
+				level.put(new ByteTag("v", (byte) 1));
+				level.put(new IntTag("x", x));
+				level.put(new IntTag("y", y));
+				level.put(new IntTag("z", z));
+
+				level.put(new ByteTag("populated", true));
+				level.put(new ByteTag("fullyPopulated", true)); // TODO: handle this properly
+				level.put(new ByteTag("isSurfaceTracked", true)); // it's empty, no need to re-track
+
+				// no need for Sections, CC has isEmpty check for that
+
+				level.put(new ByteTag("initLightDone", false));
+
+				level.put(new ListTag<>("Entities", CompoundTag.class, Collections.singletonList(new CompoundTag("", new CompoundMap()))));
+				level.put(new ListTag<>("TileEntities", CompoundTag.class, Collections.singletonList(new CompoundTag("", new CompoundMap()))));
+
+				level.put(makeEmptyLightingInfo());
+			}
+			root.put(new CompoundTag("Level", level));
+		}
+		return new CompoundTag("", root);
+	}
+
+	private CompoundTag makeEmptyLightingInfo() {
+		IntArrayTag heightmap = new IntArrayTag("LastHeightMap", new int[256]);
+		CompoundMap lightingInfoMap = new CompoundMap();
+		lightingInfoMap.put(heightmap);
+		return new CompoundTag("LightingInfo", lightingInfoMap);
 	}
 
 	private void initDimensions(Path src) {
@@ -221,9 +298,9 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 			saveCubic.save2d(new EntryLocation2D(entryLoc.getEntryX(), entryLoc.getEntryZ()), column);
 		}
 
-		convChunks++;
+		copyChunks++;
 		String msg = "Converting chunk data" + (countingChunks ? " (counting chunks)" : "");
-		progress.setProgress(new ConvertProgress(msg, 2, 3, convChunks, countingChunks ? -1 : chunkCount));
+		progress.setProgress(new ConvertProgress(msg, 2, 3, copyChunks, countingChunks ? -1 : chunkCount));
 	}
 
 	private ByteBuffer extractColumnData(ByteBuffer vanillaData) throws IOException {
