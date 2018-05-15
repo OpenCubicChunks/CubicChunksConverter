@@ -218,13 +218,14 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 							newValue = "VanillaCubic";
 						} else {
 							newValue = value;
-							newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
 						}
 						newData.put(new StringTag(dataTag.getName(), newValue));
 					} else {
 						newData.put(dataTag);
 					}
 				}
+				// put isCubicWorld at the end to overwrite previously existing data, if any
+				newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
 				newRoot.put(new CompoundTag(tag.getName(), newData));
 			} else {
 				newRoot.put(tag);
