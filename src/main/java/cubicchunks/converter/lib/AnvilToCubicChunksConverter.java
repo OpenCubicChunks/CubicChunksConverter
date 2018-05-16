@@ -360,7 +360,8 @@ public class AnvilToCubicChunksConverter implements ISaveConverter {
 		levelMap.put(new IntTag("v", 1));
 		levelMap.put(new IntTag("x", (Integer) srcLevel.get("xPos").getValue()));
 		levelMap.put(new IntTag("z", (Integer) srcLevel.get("zPos").getValue()));
-		levelMap.put(srcLevel.get("InhabitedTime"));
+		// Default to 0 because WorldPainter chunks don't have this tag
+		levelMap.put(srcLevel.getOrDefault("InhabitedTime", new IntTag("InhabitedTime", 0)));
 		levelMap.put(srcLevel.get("Biomes"));
 		levelMap.put(new ByteArrayTag("OpacityIndex", makeDummyOpacityIndex(srcHeightMap)));
 
