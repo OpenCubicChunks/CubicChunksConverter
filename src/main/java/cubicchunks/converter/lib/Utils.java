@@ -142,7 +142,7 @@ public class Utils {
 
 	public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new DeflaterOutputStream(bytes) {{
+		NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes) {{
 			if (!compress) this.def.setLevel(Deflater.NO_COMPRESSION);
 		}}), false);
 		nbtOut.writeTag(tag);
