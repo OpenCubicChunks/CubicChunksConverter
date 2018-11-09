@@ -28,6 +28,7 @@ import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +44,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -140,9 +142,9 @@ public class Utils {
 
 	public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		NBTOutputStream nbtOut = new NBTOutputStream(new GZIPOutputStream(bytes) {{
+		NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new DeflaterOutputStream(bytes) {{
 			if (!compress) this.def.setLevel(Deflater.NO_COMPRESSION);
-		}}, false);
+		}}), false);
 		nbtOut.writeTag(tag);
 		nbtOut.close();
 		bytes.flush();
