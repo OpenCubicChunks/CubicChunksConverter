@@ -33,6 +33,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import cubicchunks.converter.lib.AnvilToCubicChunksConverter;
 import cubicchunks.converter.lib.ConverterRegistry;
 import cubicchunks.converter.lib.SaveFormat;
 import cubicchunks.converter.lib.Utils;
@@ -44,6 +45,7 @@ public class GuiFrame extends JFrame {
 
 	private JButton convertBtn;
 	private JProgressBar progressBar;
+	private JProgressBar convertFill, ioFill;
 
 	private JTextField srcPathField;
 	private JTextField dstPathField;
@@ -62,6 +64,8 @@ public class GuiFrame extends JFrame {
 
 		convertBtn = new JButton("Convert");
 		progressBar = new JProgressBar();
+		convertFill = new JProgressBar();
+		ioFill = new JProgressBar();
 
 		GridBagConstraints gbc = new GridBagConstraints();
 
@@ -92,6 +96,20 @@ public class GuiFrame extends JFrame {
 		gbc.gridwidth = 1;
 		gbc.weightx = 1;
 		gbc.fill = GridBagConstraints.HORIZONTAL;
+		mainPanel.add(convertFill, gbc);
+
+		gbc.gridx = 0;
+		gbc.gridy = 3;
+		gbc.gridwidth = 1;
+		gbc.weightx = 1;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		mainPanel.add(ioFill, gbc);
+
+		gbc.gridx = 0;
+		gbc.gridy = 4;
+		gbc.gridwidth = 1;
+		gbc.weightx = 1;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
 		JLabel label = new JLabel("WARNING: USE ON MODDED WORLDS AT YOUR OWN RISK! THIS IS NOT DESIGNED TO HANDLE THEM!");
 		label.setForeground(Color.RED);
 		mainPanel.add(label, gbc);
@@ -103,6 +121,8 @@ public class GuiFrame extends JFrame {
 		convertBtn.addActionListener(x -> convert());
 
 		progressBar.setPreferredSize(new Dimension(100, (int) convertBtn.getPreferredSize().getHeight()));
+		convertFill.setPreferredSize(new Dimension(100, (int) convertBtn.getPreferredSize().getHeight()));
+		ioFill.setPreferredSize(new Dimension(100, (int) convertBtn.getPreferredSize().getHeight()));
 
 		this.add(root);
 
@@ -223,11 +243,13 @@ public class GuiFrame extends JFrame {
 			updateConvertBtn();
 			return;
 		}
-		progressBar.setMaximum(100);
 		progressBar.setStringPainted(true);
+		convertFill.setStringPainted(true);
+		ioFill.setStringPainted(true);
 		isConverting = true;
 		updateConvertBtn();
-		ConverterWorker w = new ConverterWorker(ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS), srcPath, dstPath, progressBar, () -> {
+		ConverterWorker w = new ConverterWorker((AnvilToCubicChunksConverter) ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS),
+			srcPath, dstPath, progressBar, convertFill, ioFill, () -> {
 			isConverting = false;
 			progressBar.setString("Done!");
 			progressBar.setValue(0);

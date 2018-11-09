@@ -32,21 +32,28 @@ import java.util.concurrent.ExecutionException;
 
 import javax.swing.*;
 
+import cubicchunks.converter.lib.AnvilToCubicChunksConverter;
 import cubicchunks.converter.lib.ConvertProgress;
 import cubicchunks.converter.lib.ISaveConverter;
 
-public class ConverterWorker extends SwingWorker<Throwable, ConvertProgress> {
-	private final ISaveConverter converter;
+public class ConverterWorker extends SwingWorker<Throwable, Void> {
+	private final AnvilToCubicChunksConverter converter;
 	private final Path srcPath;
 	private final Path dstPath;
 	private JProgressBar progressBar;
+	private JProgressBar convertQueueFill;
+	private JProgressBar ioQueueFill;
 	private Runnable onDone;
 
-	public ConverterWorker(ISaveConverter converter, Path srcPath, Path dstPath, JProgressBar progressBar, Runnable onDone) {
+	public ConverterWorker(AnvilToCubicChunksConverter converter, Path srcPath, Path dstPath,
+	                       JProgressBar progressBar, JProgressBar convertQueueFill, JProgressBar ioQueueFill,
+	                       Runnable onDone) {
 		this.converter = converter;
 		this.srcPath = srcPath;
 		this.dstPath = dstPath;
 		this.progressBar = progressBar;
+		this.convertQueueFill = convertQueueFill;
+		this.ioQueueFill = ioQueueFill;
 		this.onDone = onDone;
 	}
 
@@ -60,17 +67,29 @@ public class ConverterWorker extends SwingWorker<Throwable, ConvertProgress> {
 		return null;
 	}
 
-	@Override protected void process(List<ConvertProgress> l) {
-		ConvertProgress p = l.get(l.size() - 1);
-		double progress;
-		if (p.getStepProgress() < 0) {
-			progress = 0;
-		} else {
-			progress = 100*p.getStepProgress()/p.getMaxStepProgress();
-		}
-		String message = String.format("Step %d of %d: %s: %.2f%%", p.getStep(), p.getMaxSteps(), p.getStepName(), progress);
-		this.progressBar.setValue((int) (progress));
+	@Override protected void process(List<Void> l) {
+		int submitted = converter.getSubmittedChunks();
+		int total = converter.getTotalChunks();
+		double progress = 100*submitted/(float) total;
+		String message = String.format("Submitted chunk tasks: %d/%d %.2f%%", submitted, total, progress);
+		this.progressBar.setMinimum(0);
+		this.progressBar.setMaximum(total);
+		this.progressBar.setValue(submitted);
 		this.progressBar.setString(message);
+
+		int maxSize = this.converter.getConvertBufferMaxSize();
+		int size = this.converter.getConvertBufferFill();
+		this.convertQueueFill.setMinimum(0);
+		this.convertQueueFill.setMaximum(maxSize);
+		this.convertQueueFill.setValue(size);
+		this.convertQueueFill.setString(String.format("Convert queue fill: %d/%d", size, maxSize));
+
+		maxSize = this.converter.getIOBufferMaxSize();
+		size = this.converter.getIOBufferFill();
+		this.ioQueueFill.setMinimum(0);
+		this.ioQueueFill.setMaximum(maxSize);
+		this.ioQueueFill.setValue(size);
+		this.ioQueueFill.setString(String.format("IO queue fill: %d/%d", size, maxSize));
 	}
 
 	@Override

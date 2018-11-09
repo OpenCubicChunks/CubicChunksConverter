@@ -24,5 +24,5 @@
 package cubicchunks.converter.lib;
 
 public interface IProgressListener {
-	void setProgress(ConvertProgress progress);
+	void update(Void progress);
 }

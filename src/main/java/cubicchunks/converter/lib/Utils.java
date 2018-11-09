@@ -23,15 +23,29 @@
  */
 package cubicchunks.converter.lib;
 
+import com.flowpowered.nbt.CompoundTag;
+import com.flowpowered.nbt.stream.NBTInputStream;
+import com.flowpowered.nbt.stream.NBTOutputStream;
+
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.concurrent.Callable;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.zip.Deflater;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.InflaterInputStream;
 
 public class Utils {
 
@@ -85,7 +99,6 @@ public class Utils {
 							onCopy.accept(f);
 						}
 						if (Files.isDirectory(f)) {
-							Files.createDirectories(f);
 							copyEverythingExcept(f, srcDir, dstDir, excluded, onCopy);
 						} else if (!Files.isRegularFile(f)) {
 							throw new UnsupportedOperationException();
@@ -101,13 +114,39 @@ public class Utils {
 	}
 
 	public static void copyFile(Path srcFile, Path srcDir, Path dstDir) throws IOException {
-		Path relative = srcDir.relativize(srcFile);
+		Path relative = srcDir.relativize(srcFile);//
 		Path dstFile = dstDir.resolve(relative);
 
 		if (Files.exists(dstFile) && Files.isDirectory(dstFile)) {
 			return; // already exists, stop here to avoid DirectoryNotEmptyException
 		}
+		Files.createDirectories(dstFile.getParent());
 		Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+	}
+
+	public static CompoundTag readCompressed(InputStream is) throws IOException {
+		int i = is.read();
+		BufferedInputStream data;
+		if (i == 1) {
+			data = new BufferedInputStream(new GZIPInputStream(is));
+		} else if (i == 2) {
+			data = new BufferedInputStream(new InflaterInputStream(is));
+		} else {
+			throw new UnsupportedOperationException();
+		}
+
+		return (CompoundTag) new NBTInputStream(data, false).readTag();
+	}
+
+	public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		NBTOutputStream nbtOut = new NBTOutputStream(new GZIPOutputStream(bytes) {{
+			if (!compress) this.def.setLevel(Deflater.NO_COMPRESSION);
+		}}, false);
+		nbtOut.writeTag(tag);
+		nbtOut.close();
+		bytes.flush();
+		return ByteBuffer.wrap(bytes.toByteArray());
 	}
 
 	private enum OS {

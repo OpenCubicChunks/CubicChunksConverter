@@ -27,7 +27,8 @@ import java.awt.*;
 import java.io.IOException;
 
 public class ConverterGui {
-	public static void main(String... args) throws IOException {
+	public static void main(String... args) throws IOException, InterruptedException {
 		EventQueue.invokeLater(() -> new GuiFrame().init());
+		Thread.sleep(Long.MAX_VALUE);
 	}
 }

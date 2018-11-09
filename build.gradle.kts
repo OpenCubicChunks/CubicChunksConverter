@@ -74,11 +74,15 @@ repositories {
     maven {
         setUrl("https://oss.sonatype.org/content/groups/public/")
     }
+    maven {
+        name = "mojang"
+        setUrl("https://libraries.minecraft.net/")
+    }
 }
 
 dependencies {
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
-    compile("io.github.opencubicchunks:regionlib:0.51.0-SNAPSHOT")
+    compile("io.github.opencubicchunks:regionlib:0.52.0-SNAPSHOT")
     testCompile("junit:junit:4.11")
 }
 
