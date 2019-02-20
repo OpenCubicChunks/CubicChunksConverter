@@ -29,19 +29,20 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class Dimensions {
-	private static final Set<Dimension> ALL_DIMENSIONS = new HashSet<>();
 
-	static {
-		addDimension(new Dimension("Overworld", ""));
-		addDimension(new Dimension("The Nether", "DIM-1"));
-		addDimension(new Dimension("Overworld", "DIM1"));
-	}
+    private static final Set<Dimension> ALL_DIMENSIONS = new HashSet<>();
 
-	public static void addDimension(Dimension dim) {
-		ALL_DIMENSIONS.add(dim);
-	}
+    static {
+        addDimension(new Dimension("Overworld", ""));
+        addDimension(new Dimension("The Nether", "DIM-1"));
+        addDimension(new Dimension("Overworld", "DIM1"));
+    }
 
-	public static Collection<Dimension> getDimensions() {
-		return Collections.unmodifiableCollection(ALL_DIMENSIONS);
-	}
+    public static void addDimension(Dimension dim) {
+        ALL_DIMENSIONS.add(dim);
+    }
+
+    public static Collection<Dimension> getDimensions() {
+        return Collections.unmodifiableCollection(ALL_DIMENSIONS);
+    }
 }

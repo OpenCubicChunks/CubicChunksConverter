@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 
 public class AnvilChunkData {
+
     private final Dimension dimension;
     private final MinecraftChunkLocation position;
     private final ByteBuffer data;

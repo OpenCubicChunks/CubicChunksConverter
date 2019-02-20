@@ -23,12 +23,13 @@
  */
 package cubicchunks.converter.gui;
 
-import java.awt.*;
+import java.awt.EventQueue;
 import java.io.IOException;
 
 public class ConverterGui {
-	public static void main(String... args) throws IOException, InterruptedException {
-		EventQueue.invokeLater(() -> new GuiFrame().init());
-		Thread.sleep(Long.MAX_VALUE);
-	}
+
+    public static void main(String... args) throws IOException, InterruptedException {
+        EventQueue.invokeLater(() -> new GuiFrame().init());
+        Thread.sleep(Long.MAX_VALUE);
+    }
 }

@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class ConvertedCubicChunksData {
+
     private final Dimension dimension;
     private final EntryLocation2D position;
     private final ByteBuffer columnData;

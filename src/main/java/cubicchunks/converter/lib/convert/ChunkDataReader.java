@@ -30,6 +30,7 @@ import java.util.function.Consumer;
  * Loads chunk data from input format into an in-memory representation appropriate for a specific format converter.
  */
 public interface ChunkDataReader<T> extends AutoCloseable {
+
     /**
      * Counts chunks in the input world. This is expected to run in the background.
      *

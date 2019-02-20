@@ -39,167 +39,166 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.Callable;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
 
 public class Utils {
 
-	// Files.createDirectories doesn't handle symlinks
-	public static void createDirectories(Path dir) throws IOException {
-		if (Files.isDirectory(dir)) {
-			return;
-		}
-		createDirectories(dir.getParent());
-		Files.createDirectory(dir);
-	}
+    // Files.createDirectories doesn't handle symlinks
+    public static void createDirectories(Path dir) throws IOException {
+        if (Files.isDirectory(dir)) {
+            return;
+        }
+        createDirectories(dir.getParent());
+        Files.createDirectory(dir);
+    }
 
-	public static boolean isValidPath(String text) {
-		try {
-			Files.exists(Paths.get(text));
-			return true;
-		} catch (InvalidPathException e) {
-			return false;
-		}
-	}
+    public static boolean isValidPath(String text) {
+        try {
+            Files.exists(Paths.get(text));
+            return true;
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
 
-	public static boolean fileExists(String text) {
-		try {
-			return Files.exists(Paths.get(text));
-		} catch (InvalidPathException e) {
-			return false;
-		}
-	}
+    public static boolean fileExists(String text) {
+        try {
+            return Files.exists(Paths.get(text));
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
 
-	public static int countFiles(Path f) throws IOException {
-		try {
-			return countFiles_do(f);
-		} catch (UncheckedIOException e) {
-			throw e.getCause();
-		}
-	}
+    public static int countFiles(Path f) throws IOException {
+        try {
+            return countFiles_do(f);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
 
-	private static int countFiles_do(Path f) {
-		if (Files.isRegularFile(f)) {
-			return 1;
-		} else if (!Files.isDirectory(f)) {
-			throw new UnsupportedOperationException();
-		}
+    private static int countFiles_do(Path f) {
+        if (Files.isRegularFile(f)) {
+            return 1;
+        } else if (!Files.isDirectory(f)) {
+            throw new UnsupportedOperationException();
+        }
 
-		try {
-			return Files.list(f).map(p -> countFiles_do(p)).reduce((x, y) -> x + y).orElse(0);
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
-		}
-	}
+        try {
+            return Files.list(f).map(p -> countFiles_do(p)).reduce((x, y) -> x + y).orElse(0);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-	public static void copyEverythingExcept(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy) throws IOException {
-		try {
-			Files.list(file).forEach(f -> {
-				if (!excluded.test(f)) {
-					try {
-						copyFile(f, srcDir, dstDir);
-						if (Files.isRegularFile(f)) {
-							onCopy.accept(f);
-						}
-						if (Files.isDirectory(f)) {
-							copyEverythingExcept(f, srcDir, dstDir, excluded, onCopy);
-						} else if (!Files.isRegularFile(f)) {
-							throw new UnsupportedOperationException();
-						}
-					} catch (IOException e) {
-						throw new UncheckedIOException(e);
-					}
-				}
-			});
-		} catch (UncheckedIOException e) {
-			throw e.getCause();
-		}
-	}
+    public static void copyEverythingExcept(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy) throws IOException {
+        try {
+            Files.list(file).forEach(f -> {
+                if (!excluded.test(f)) {
+                    try {
+                        copyFile(f, srcDir, dstDir);
+                        if (Files.isRegularFile(f)) {
+                            onCopy.accept(f);
+                        }
+                        if (Files.isDirectory(f)) {
+                            copyEverythingExcept(f, srcDir, dstDir, excluded, onCopy);
+                        } else if (!Files.isRegularFile(f)) {
+                            throw new UnsupportedOperationException();
+                        }
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+    }
 
-	public static void copyFile(Path srcFile, Path srcDir, Path dstDir) throws IOException {
-		Path relative = srcDir.relativize(srcFile);//
-		Path dstFile = dstDir.resolve(relative);
+    public static void copyFile(Path srcFile, Path srcDir, Path dstDir) throws IOException {
+        Path relative = srcDir.relativize(srcFile);//
+        Path dstFile = dstDir.resolve(relative);
 
-		if (Files.exists(dstFile) && Files.isDirectory(dstFile)) {
-			return; // already exists, stop here to avoid DirectoryNotEmptyException
-		}
-		Files.createDirectories(dstFile.getParent());
-		Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-	}
+        if (Files.exists(dstFile) && Files.isDirectory(dstFile)) {
+            return; // already exists, stop here to avoid DirectoryNotEmptyException
+        }
+        Files.createDirectories(dstFile.getParent());
+        Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+    }
 
-	public static CompoundTag readCompressed(InputStream is) throws IOException {
-		int i = is.read();
-		BufferedInputStream data;
-		if (i == 1) {
-			data = new BufferedInputStream(new GZIPInputStream(is));
-		} else if (i == 2) {
-			data = new BufferedInputStream(new InflaterInputStream(is));
-		} else {
-			throw new UnsupportedOperationException();
-		}
+    public static CompoundTag readCompressed(InputStream is) throws IOException {
+        int i = is.read();
+        BufferedInputStream data;
+        if (i == 1) {
+            data = new BufferedInputStream(new GZIPInputStream(is));
+        } else if (i == 2) {
+            data = new BufferedInputStream(new InflaterInputStream(is));
+        } else {
+            throw new UnsupportedOperationException();
+        }
 
-		return (CompoundTag) new NBTInputStream(data, false).readTag();
-	}
+        return (CompoundTag) new NBTInputStream(data, false).readTag();
+    }
 
-	public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-		NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes) {{
-			if (!compress) this.def.setLevel(Deflater.NO_COMPRESSION);
-		}}), false);
-		nbtOut.writeTag(tag);
-		nbtOut.close();
-		bytes.flush();
-		return ByteBuffer.wrap(bytes.toByteArray());
-	}
+    public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes) {{
+            if (!compress) {
+                this.def.setLevel(Deflater.NO_COMPRESSION);
+            }
+        }}), false);
+        nbtOut.writeTag(tag);
+        nbtOut.close();
+        bytes.flush();
+        return ByteBuffer.wrap(bytes.toByteArray());
+    }
 
-	private enum OS {
-		WINDOWS, MACOS, SOLARIS, LINUX, UNKNOWN;
-	}
+    private enum OS {
+        WINDOWS, MACOS, SOLARIS, LINUX, UNKNOWN;
+    }
 
-	private static OS getPlatform() {
-		String osName = System.getProperty("os.name").toLowerCase();
-		if (osName.contains("win")) {
-			return OS.WINDOWS;
-		}
-		if (osName.contains("mac")) {
-			return OS.MACOS;
-		}
-		if (osName.contains("linux")) {
-			return OS.LINUX;
-		}
-		if (osName.contains("unix")) {
-			return OS.LINUX;
-		}
-		return OS.UNKNOWN;
-	}
+    private static OS getPlatform() {
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.contains("win")) {
+            return OS.WINDOWS;
+        }
+        if (osName.contains("mac")) {
+            return OS.MACOS;
+        }
+        if (osName.contains("linux")) {
+            return OS.LINUX;
+        }
+        if (osName.contains("unix")) {
+            return OS.LINUX;
+        }
+        return OS.UNKNOWN;
+    }
 
-	public static Path getApplicationDirectory() {
-		String userHome = System.getProperty("user.home", ".");
-		Path workingDirectory;
-		switch (getPlatform()) {
-			case LINUX:
-			case SOLARIS:
-				workingDirectory = Paths.get(userHome, ".minecraft/");
-				break;
-			case WINDOWS:
-				String applicationData = System.getenv("APPDATA");
-				String folder = applicationData != null ? applicationData : userHome;
+    public static Path getApplicationDirectory() {
+        String userHome = System.getProperty("user.home", ".");
+        Path workingDirectory;
+        switch (getPlatform()) {
+            case LINUX:
+            case SOLARIS:
+                workingDirectory = Paths.get(userHome, ".minecraft/");
+                break;
+            case WINDOWS:
+                String applicationData = System.getenv("APPDATA");
+                String folder = applicationData != null ? applicationData : userHome;
 
-				workingDirectory = Paths.get(folder, ".minecraft/");
-				break;
-			case MACOS:
-				workingDirectory = Paths.get(userHome, "Library/Application Support/minecraft");
-				break;
-			default:
-				workingDirectory = Paths.get(userHome, "minecraft/");
-		}
-		return workingDirectory;
-	}
+                workingDirectory = Paths.get(folder, ".minecraft/");
+                break;
+            case MACOS:
+                workingDirectory = Paths.get(userHome, "Library/Application Support/minecraft");
+                break;
+            default:
+                workingDirectory = Paths.get(userHome, "minecraft/");
+        }
+        return workingDirectory;
+    }
 }

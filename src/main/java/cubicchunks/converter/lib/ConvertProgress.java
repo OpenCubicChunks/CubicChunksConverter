@@ -24,37 +24,38 @@
 package cubicchunks.converter.lib;
 
 public class ConvertProgress {
-	private int step;
-	private final int maxSteps;
-	private double stepProgress;
-	private final double maxStepProgress;
-	private String stepName;
 
-	public ConvertProgress(String stepName, int step, int maxSteps, double stepProgress, double maxStepProgress) {
-		this.stepName = stepName;
-		this.step = step;
-		this.maxSteps = maxSteps;
-		this.stepProgress = stepProgress;
-		this.maxStepProgress = maxStepProgress;
-	}
+    private int step;
+    private final int maxSteps;
+    private double stepProgress;
+    private final double maxStepProgress;
+    private String stepName;
 
-	public int getStep() {
-		return step;
-	}
+    public ConvertProgress(String stepName, int step, int maxSteps, double stepProgress, double maxStepProgress) {
+        this.stepName = stepName;
+        this.step = step;
+        this.maxSteps = maxSteps;
+        this.stepProgress = stepProgress;
+        this.maxStepProgress = maxStepProgress;
+    }
 
-	public int getMaxSteps() {
-		return maxSteps;
-	}
+    public int getStep() {
+        return step;
+    }
 
-	public double getStepProgress() {
-		return stepProgress;
-	}
+    public int getMaxSteps() {
+        return maxSteps;
+    }
 
-	public double getMaxStepProgress() {
-		return maxStepProgress;
-	}
+    public double getStepProgress() {
+        return stepProgress;
+    }
 
-	public String getStepName() {
-		return stepName;
-	}
+    public double getMaxStepProgress() {
+        return maxStepProgress;
+    }
+
+    public String getStepName() {
+        return stepName;
+    }
 }

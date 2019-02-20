@@ -23,95 +23,97 @@
  */
 package cubicchunks.converter.gui;
 
+import cubicchunks.converter.lib.convert.WorldConverter;
+
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import javax.swing.*;
-
-import cubicchunks.converter.lib.convert.WorldConverter;
+import javax.swing.JOptionPane;
+import javax.swing.JProgressBar;
+import javax.swing.SwingWorker;
 
 public class ConverterWorker extends SwingWorker<Throwable, Void> {
-	private final WorldConverter converter;
-	private JProgressBar progressBar;
-	private JProgressBar convertQueueFill;
-	private JProgressBar ioQueueFill;
-	private Runnable onDone;
 
-	public ConverterWorker(WorldConverter converter, JProgressBar progressBar, JProgressBar convertQueueFill,
-		JProgressBar ioQueueFill, Runnable onDone) {
-		this.converter = converter;
-		this.progressBar = progressBar;
-		this.convertQueueFill = convertQueueFill;
-		this.ioQueueFill = ioQueueFill;
-		this.onDone = onDone;
-	}
+    private final WorldConverter converter;
+    private JProgressBar progressBar;
+    private JProgressBar convertQueueFill;
+    private JProgressBar ioQueueFill;
+    private Runnable onDone;
 
-	@Override protected Throwable doInBackground() {
-		try {
-			this.converter.convert(this::publish);
-		} catch(Throwable t) {
-			t.printStackTrace();
-			return t;
-		}
-		return null;
-	}
+    public ConverterWorker(WorldConverter converter, JProgressBar progressBar, JProgressBar convertQueueFill,
+        JProgressBar ioQueueFill, Runnable onDone) {
+        this.converter = converter;
+        this.progressBar = progressBar;
+        this.convertQueueFill = convertQueueFill;
+        this.ioQueueFill = ioQueueFill;
+        this.onDone = onDone;
+    }
 
-	@Override protected void process(List<Void> l) {
-		int submitted = converter.getSubmittedChunks();
-		int total = converter.getTotalChunks();
-		double progress = 100*submitted/(float) total;
-		String message = String.format("Submitted chunk tasks: %d/%d %.2f%%", submitted, total, progress);
-		this.progressBar.setMinimum(0);
-		this.progressBar.setMaximum(total);
-		this.progressBar.setValue(submitted);
-		this.progressBar.setString(message);
+    @Override protected Throwable doInBackground() {
+        try {
+            this.converter.convert(this::publish);
+        } catch (Throwable t) {
+            t.printStackTrace();
+            return t;
+        }
+        return null;
+    }
 
-		int maxSize = this.converter.getConvertBufferMaxSize();
-		int size = this.converter.getConvertBufferFill();
-		this.convertQueueFill.setMinimum(0);
-		this.convertQueueFill.setMaximum(maxSize);
-		this.convertQueueFill.setValue(size);
-		this.convertQueueFill.setString(String.format("Convert queue fill: %d/%d", size, maxSize));
+    @Override protected void process(List<Void> l) {
+        int submitted = converter.getSubmittedChunks();
+        int total = converter.getTotalChunks();
+        double progress = 100 * submitted / (float) total;
+        String message = String.format("Submitted chunk tasks: %d/%d %.2f%%", submitted, total, progress);
+        this.progressBar.setMinimum(0);
+        this.progressBar.setMaximum(total);
+        this.progressBar.setValue(submitted);
+        this.progressBar.setString(message);
 
-		maxSize = this.converter.getIOBufferMaxSize();
-		size = this.converter.getIOBufferFill();
-		this.ioQueueFill.setMinimum(0);
-		this.ioQueueFill.setMaximum(maxSize);
-		this.ioQueueFill.setValue(size);
-		this.ioQueueFill.setString(String.format("IO queue fill: %d/%d", size, maxSize));
-	}
+        int maxSize = this.converter.getConvertBufferMaxSize();
+        int size = this.converter.getConvertBufferFill();
+        this.convertQueueFill.setMinimum(0);
+        this.convertQueueFill.setMaximum(maxSize);
+        this.convertQueueFill.setValue(size);
+        this.convertQueueFill.setString(String.format("Convert queue fill: %d/%d", size, maxSize));
 
-	@Override
-	protected void done() {
-		onDone.run();
-		Throwable t;
-		try {
-			t = get();
-		} catch (InterruptedException | ExecutionException e) {
-			t = e;
-		}
-		if (t == null) {
-			return;
-		}
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		PrintStream ps;
-		try {
-			ps = new PrintStream(out, true, "UTF-8");
-		} catch (UnsupportedEncodingException e1) {
-			throw new Error(e1);
-		}
-		t.printStackTrace(ps);
-		ps.close();
-		String str;
-		try {
-			str = new String(out.toByteArray(), "UTF-8");
-		} catch (UnsupportedEncodingException e1) {
-			throw new Error(e1);
-		}
-		JOptionPane.showMessageDialog(null, str);
-	}
+        maxSize = this.converter.getIOBufferMaxSize();
+        size = this.converter.getIOBufferFill();
+        this.ioQueueFill.setMinimum(0);
+        this.ioQueueFill.setMaximum(maxSize);
+        this.ioQueueFill.setValue(size);
+        this.ioQueueFill.setString(String.format("IO queue fill: %d/%d", size, maxSize));
+    }
+
+    @Override
+    protected void done() {
+        onDone.run();
+        Throwable t;
+        try {
+            t = get();
+        } catch (InterruptedException | ExecutionException e) {
+            t = e;
+        }
+        if (t == null) {
+            return;
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream ps;
+        try {
+            ps = new PrintStream(out, true, "UTF-8");
+        } catch (UnsupportedEncodingException e1) {
+            throw new Error(e1);
+        }
+        t.printStackTrace(ps);
+        ps.close();
+        String str;
+        try {
+            str = new String(out.toByteArray(), "UTF-8");
+        } catch (UnsupportedEncodingException e1) {
+            throw new Error(e1);
+        }
+        JOptionPane.showMessageDialog(null, str);
+    }
 }

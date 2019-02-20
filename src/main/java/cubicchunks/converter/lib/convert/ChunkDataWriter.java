@@ -33,6 +33,7 @@ import java.io.IOException;
  * Writing data to disk may be done in the background.
  */
 public interface ChunkDataWriter<T> extends AutoCloseable {
+
     /**
      * Writes given chunk data for writing to disk. This is expected to be
      * called from a thread running in the background.

@@ -41,58 +41,60 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunkData, ConvertedCubicChunksData> {
-	private final Path srcDir;
-	private final Path dstDir;
 
-	public Anvil2CCLevelInfoConverter(Path srcDir, Path dstDir) {
-		this.srcDir = srcDir;
-		this.dstDir = dstDir;
-	}
+    private final Path srcDir;
+    private final Path dstDir;
 
-	@Override public void convert() throws IOException {
-		Utils.createDirectories(dstDir);
-		CompoundTag root;
-		try (NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcDir.resolve("level.dat").toFile()));
-		     NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()))) {
-			root = (CompoundTag) nbtIn.readTag();
+    public Anvil2CCLevelInfoConverter(Path srcDir, Path dstDir) {
+        this.srcDir = srcDir;
+        this.dstDir = dstDir;
+    }
 
-			CompoundMap newRoot = new CompoundMap();
-			for (Tag<?> tag : root.getValue()) {
-				if (tag.getName().equals("Data")) {
-					CompoundMap data = ((CompoundTag) root.getValue().get("Data")).getValue();
-					CompoundMap newData = new CompoundMap();
-					for (Tag<?> dataTag : data) {
-						if (dataTag.getName().equals("generatorName")) {
-							String value = (String) dataTag.getValue();
-							String newValue;
-							if (value.equalsIgnoreCase("default")) {
-								newValue = "VanillaCubic";
-							} else {
-								newValue = value;
-							}
-							newData.put(new StringTag(dataTag.getName(), newValue));
-						} else {
-							newData.put(dataTag);
-						}
-					}
-					// put isCubicWorld at the end to overwrite previously existing data, if any
-					newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
-					newRoot.put(new CompoundTag(tag.getName(), newData));
-				} else {
-					newRoot.put(tag);
-				}
-			}
-			Files.createDirectories(dstDir);
+    @Override public void convert() throws IOException {
+        Utils.createDirectories(dstDir);
+        CompoundTag root;
+        try (NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcDir.resolve("level.dat").toFile()));
+            NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()))) {
+            root = (CompoundTag) nbtIn.readTag();
 
-			nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
+            CompoundMap newRoot = new CompoundMap();
+            for (Tag<?> tag : root.getValue()) {
+                if (tag.getName().equals("Data")) {
+                    CompoundMap data = ((CompoundTag) root.getValue().get("Data")).getValue();
+                    CompoundMap newData = new CompoundMap();
+                    for (Tag<?> dataTag : data) {
+                        if (dataTag.getName().equals("generatorName")) {
+                            String value = (String) dataTag.getValue();
+                            String newValue;
+                            if (value.equalsIgnoreCase("default")) {
+                                newValue = "VanillaCubic";
+                            } else {
+                                newValue = value;
+                            }
+                            newData.put(new StringTag(dataTag.getName(), newValue));
+                        } else {
+                            newData.put(dataTag);
+                        }
+                    }
+                    // put isCubicWorld at the end to overwrite previously existing data, if any
+                    newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
+                    newRoot.put(new CompoundTag(tag.getName(), newData));
+                } else {
+                    newRoot.put(tag);
+                }
+            }
+            Files.createDirectories(dstDir);
 
-			Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
-					file.toString().contains("level.dat") ||
-						Dimensions.getDimensions().stream().anyMatch(dim ->
-							srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
-						),
-				f -> {} // TODO: counting files
-			);
-		}
-	}
+            nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
+
+            Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
+                    file.toString().contains("level.dat") ||
+                        Dimensions.getDimensions().stream().anyMatch(dim ->
+                            srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
+                        ),
+                f -> {
+                } // TODO: counting files
+            );
+        }
+    }
 }
