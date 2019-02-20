@@ -21,7 +21,9 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.anvil2cc;
+
+import static java.util.Collections.singletonList;
 
 import com.flowpowered.nbt.ByteArrayTag;
 import com.flowpowered.nbt.ByteTag;
@@ -38,21 +40,24 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import cubicchunks.regionlib.impl.MinecraftChunkLocation;
+import cubicchunks.converter.lib.Utils;
+import cubicchunks.converter.lib.convert.ChunkDataConverter;
+import cubicchunks.regionlib.impl.EntryLocation2D;
 
-public class AnvilToCubicChunksConvertDataConverter {
-	public AnvilToCubicChunksConverter.ConvertedData convert(AnvilToCubicChunksConverter.ChunkConvertTask task) throws IOException {
-		ByteBuffer data = task.getSave().load(new MinecraftChunkLocation(task.getX(), task.getZ(), "mca"))
-			.orElseThrow(IOException::new);
-		Map<Integer, ByteBuffer> cubes = extractCubeData(data);
-		ByteBuffer column = extractColumnData(data);
-		return new AnvilToCubicChunksConverter.ConvertedData(task, cubes, column);
+public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData, ConvertedCubicChunksData> {
+	public ConvertedCubicChunksData convert(AnvilChunkData input) {
+		try {
+			Map<Integer, ByteBuffer> cubes = extractCubeData(input.getData());
+			ByteBuffer column = extractColumnData(input.getData());
+			EntryLocation2D location = new EntryLocation2D(input.getPosition().getEntryX(), input.getPosition().getEntryZ());
+			return new ConvertedCubicChunksData(input.getDimension(), location, column, cubes);
+		} catch (IOException impossible) {
+			throw new Error("ByteArrayInputStream doesn't throw IOException", impossible);
+		}
 	}
 
 
@@ -64,7 +69,7 @@ public class AnvilToCubicChunksConvertDataConverter {
 	}
 
 	private CompoundTag extractColumnData(CompoundTag tag) throws IOException {
-		/**
+		/*
 		 *
 		 * Vanilla Chunk NBT structure:
 		 *
@@ -122,9 +127,7 @@ public class AnvilToCubicChunksConvertDataConverter {
 			rootMap.put(tag.getValue().get("DataVersion"));
 		}
 
-		CompoundTag root = new CompoundTag("", rootMap);
-
-		return root;
+		return new CompoundTag("", rootMap);
 	}
 
 	private int[] fixHeightmap(int[] heights) {
@@ -158,8 +161,9 @@ public class AnvilToCubicChunksConvertDataConverter {
 		return bytes;
 	}
 
+	@SuppressWarnings("unchecked")
 	private Map<Integer, CompoundTag> extractCubeData(CompoundTag srcRootTag) {
-		/**
+		/*
 		 *
 		 * Vanilla Chunk NBT structure:
 		 *
@@ -241,7 +245,7 @@ public class AnvilToCubicChunksConvertDataConverter {
 					level.put(new ByteTag("initLightDone", (Byte) srcLevel.get("LightPopulated").getValue()));
 
 					// the vanilla section has additional Y tag, it will be ignored by cubic chunks
-					level.put(new ListTag<>("Sections", CompoundTag.class, Arrays.asList(fixSection(srcSection))));
+					level.put(new ListTag<>("Sections", CompoundTag.class, singletonList(fixSection(srcSection))));
 
 					level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
 					level.put(filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y));
@@ -275,15 +279,15 @@ public class AnvilToCubicChunksConvertDataConverter {
 				level.put(new IntTag("z", z));
 
 				level.put(new ByteTag("populated", true));
-				level.put(new ByteTag("fullyPopulated", true)); // TODO: handle this properly
+				level.put(new ByteTag("fullyPopulated", true));
 				level.put(new ByteTag("isSurfaceTracked", true)); // it's empty, no need to re-track
 
 				// no need for Sections, CC has isEmpty check for that
 
 				level.put(new ByteTag("initLightDone", false));
 
-				level.put(new ListTag<>("Entities", CompoundTag.class, Collections.singletonList(new CompoundTag("", new CompoundMap()))));
-				level.put(new ListTag<>("TileEntities", CompoundTag.class, Collections.singletonList(new CompoundTag("", new CompoundMap()))));
+				level.put(new ListTag<>("Entities", CompoundTag.class, singletonList(new CompoundTag("", new CompoundMap()))));
+				level.put(new ListTag<>("TileEntities", CompoundTag.class, singletonList(new CompoundTag("", new CompoundMap()))));
 
 				level.put(makeEmptyLightingInfo());
 			}
@@ -316,20 +320,10 @@ public class AnvilToCubicChunksConvertDataConverter {
 		IntArrayTag heightmap = new IntArrayTag("LastHeightMap", (int[]) srcLevel.get("HeightMap").getValue());
 		CompoundMap lightingInfoMap = new CompoundMap();
 		lightingInfoMap.put(heightmap);
-		CompoundTag lightingInfo = new CompoundTag("LightingInfo", lightingInfoMap);
-		return lightingInfo;
+		return new CompoundTag("LightingInfo", lightingInfoMap);
 	}
 
-	private CompoundTag getSection(CompoundMap srcLevel, int y) {
-		ListTag<CompoundTag> sections = (ListTag<CompoundTag>) srcLevel.get("Sections");
-		for (CompoundTag tag : sections.getValue()) {
-			if (((ByteTag) tag.getValue().get("Y")).getValue().equals((byte) (y))) {
-				return tag;
-			}
-		}
-		return null;
-	}
-
+	@SuppressWarnings("unchecked")
 	private ListTag<CompoundTag> filterEntities(ListTag<CompoundTag> entities, int cubeY) {
 		double yMin = cubeY*16;
 		double yMax = yMin + 16;
@@ -344,6 +338,7 @@ public class AnvilToCubicChunksConvertDataConverter {
 		return new ListTag<>(entities.getName(), CompoundTag.class, cubeEntities);
 	}
 
+	@SuppressWarnings("unchecked")
 	private ListTag<?> filterTileEntities(ListTag<?> tileEntities, int cubeY) {
 		// empty list is list of EndTags
 		if (tileEntities.getValue().isEmpty()) {

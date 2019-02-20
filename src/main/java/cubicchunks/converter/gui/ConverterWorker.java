@@ -32,34 +32,27 @@ import java.util.concurrent.ExecutionException;
 
 import javax.swing.*;
 
-import cubicchunks.converter.lib.AnvilToCubicChunksConverter;
-import cubicchunks.converter.lib.ConvertProgress;
-import cubicchunks.converter.lib.ISaveConverter;
+import cubicchunks.converter.lib.convert.WorldConverter;
 
 public class ConverterWorker extends SwingWorker<Throwable, Void> {
-	private final AnvilToCubicChunksConverter converter;
-	private final Path srcPath;
-	private final Path dstPath;
+	private final WorldConverter converter;
 	private JProgressBar progressBar;
 	private JProgressBar convertQueueFill;
 	private JProgressBar ioQueueFill;
 	private Runnable onDone;
 
-	public ConverterWorker(AnvilToCubicChunksConverter converter, Path srcPath, Path dstPath,
-	                       JProgressBar progressBar, JProgressBar convertQueueFill, JProgressBar ioQueueFill,
-	                       Runnable onDone) {
+	public ConverterWorker(WorldConverter converter, JProgressBar progressBar, JProgressBar convertQueueFill,
+		JProgressBar ioQueueFill, Runnable onDone) {
 		this.converter = converter;
-		this.srcPath = srcPath;
-		this.dstPath = dstPath;
 		this.progressBar = progressBar;
 		this.convertQueueFill = convertQueueFill;
 		this.ioQueueFill = ioQueueFill;
 		this.onDone = onDone;
 	}
 
-	@Override protected Throwable doInBackground() throws Exception {
+	@Override protected Throwable doInBackground() {
 		try {
-			this.converter.convert(this::publish, srcPath, dstPath);
+			this.converter.convert(this::publish);
 		} catch(Throwable t) {
 			t.printStackTrace();
 			return t;

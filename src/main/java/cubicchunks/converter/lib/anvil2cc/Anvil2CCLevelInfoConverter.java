@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.anvil2cc;
 
 import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
@@ -30,28 +30,30 @@ import com.flowpowered.nbt.StringTag;
 import com.flowpowered.nbt.Tag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
+import cubicchunks.converter.lib.Dimensions;
+import cubicchunks.converter.lib.Utils;
+import cubicchunks.converter.lib.convert.LevelInfoConverter;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class AnvilToCCLevelInfoConverter implements Runnable {
-
+public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunkData, ConvertedCubicChunksData> {
 	private final Path srcDir;
 	private final Path dstDir;
 
-	public AnvilToCCLevelInfoConverter(Path srcDir, Path dstDir) {
+	public Anvil2CCLevelInfoConverter(Path srcDir, Path dstDir) {
 		this.srcDir = srcDir;
 		this.dstDir = dstDir;
 	}
 
-	@Override public void run() {
+	@Override public void convert() throws IOException {
+		Utils.createDirectories(dstDir);
 		CompoundTag root;
 		try (NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcDir.resolve("level.dat").toFile()));
-		     NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()));) {
+		     NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dstDir.resolve("level.dat").toFile()))) {
 			root = (CompoundTag) nbtIn.readTag();
 
 			CompoundMap newRoot = new CompoundMap();
@@ -83,8 +85,14 @@ public class AnvilToCCLevelInfoConverter implements Runnable {
 			Files.createDirectories(dstDir);
 
 			nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+
+			Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
+					file.toString().contains("level.dat") ||
+						Dimensions.getDimensions().stream().anyMatch(dim ->
+							srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
+						),
+				f -> {} // TODO: counting files
+			);
 		}
 	}
 }

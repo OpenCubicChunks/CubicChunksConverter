@@ -21,11 +21,17 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.convert;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
-public interface ISaveConverter {
-	void convert(IProgressListener progress, Path srcDir, Path dstDir) throws IOException;
+/**
+ * Converts world metadata from world format of {@link IN} to world format of {@link OUT}.
+ */
+public interface LevelInfoConverter<IN, OUT> {
+
+    /**
+     * Converts world metadata and copies unmodified non-chunk files.
+     */
+    void convert() throws IOException;
 }

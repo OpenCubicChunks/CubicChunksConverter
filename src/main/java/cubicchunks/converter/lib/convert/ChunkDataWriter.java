@@ -21,8 +21,21 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.convert;
 
-public enum SaveFormat {
-	VANILLA_ANVIL, CUBIC_CHUNKS
+import java.io.IOException;
+
+/**
+ * Writes chunks to disk, supplied in an in-memory representation specific to
+ * the world format.
+ *
+ * The {@link #accept(T)} method is expected to be called from multiple threads.
+ * Writing data to disk may be done in the background.
+ */
+public interface ChunkDataWriter<T> extends AutoCloseable {
+    /**
+     * Writes given chunk data for writing to disk. This is expected to be
+     * called from a thread running in the background.
+     */
+    void accept(T t) throws IOException;
 }

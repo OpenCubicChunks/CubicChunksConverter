@@ -21,31 +21,18 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.convert;
 
-public class ConverterRegistry {
-	private static final ISaveConverter[][] convertMapping = new ISaveConverter[SaveFormat.values().length][SaveFormat.values().length];
+/**
+ * Converts chunk data from {@link IN} format to {@link OUT} format.
+ */
+public interface ChunkDataConverter<IN, OUT> {
 
-	static {
-		registerIdentityConverters();
-		registerConverters();
-	}
-
-	private static void registerIdentityConverters() {
-		for (SaveFormat format : SaveFormat.values()) {
-			register(format, format, new IdentityConverter());
-		}
-	}
-
-	private static void registerConverters() {
-		register(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS, new AnvilToCubicChunksConverter());
-	}
-
-	public static void register(SaveFormat src, SaveFormat dst, ISaveConverter converter) {
-		convertMapping[src.ordinal()][dst.ordinal()] = converter;
-	}
-
-	public static ISaveConverter getConverter(SaveFormat src, SaveFormat dst) {
-		return convertMapping[src.ordinal()][dst.ordinal()];
-	}
+    /**
+     * Converts the supplied input. This is expected to be called from multiple threads.
+     *
+     * @param input The chunk data to convert
+     * @return The converted chunk data
+     */
+    OUT convert(IN input);
 }

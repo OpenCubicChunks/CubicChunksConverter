@@ -51,6 +51,14 @@ import java.util.zip.InflaterInputStream;
 
 public class Utils {
 
+	// Files.createDirectories doesn't handle symlinks
+	public static void createDirectories(Path dir) throws IOException {
+		if (Files.isDirectory(dir)) {
+			return;
+		}
+		createDirectories(dir.getParent());
+		Files.createDirectory(dir);
+	}
 
 	public static boolean isValidPath(String text) {
 		try {

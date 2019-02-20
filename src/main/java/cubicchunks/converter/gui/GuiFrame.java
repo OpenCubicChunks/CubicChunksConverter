@@ -33,9 +33,11 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-import cubicchunks.converter.lib.AnvilToCubicChunksConverter;
-import cubicchunks.converter.lib.ConverterRegistry;
-import cubicchunks.converter.lib.SaveFormat;
+import cubicchunks.converter.lib.anvil2cc.Anvil2CCDataConverter;
+import cubicchunks.converter.lib.anvil2cc.Anvil2CCLevelInfoConverter;
+import cubicchunks.converter.lib.anvil2cc.AnvilChunkReader;
+import cubicchunks.converter.lib.anvil2cc.CubicChunkWriter;
+import cubicchunks.converter.lib.convert.WorldConverter;
 import cubicchunks.converter.lib.Utils;
 
 public class GuiFrame extends JFrame {
@@ -248,8 +250,13 @@ public class GuiFrame extends JFrame {
 		ioFill.setStringPainted(true);
 		isConverting = true;
 		updateConvertBtn();
-		ConverterWorker w = new ConverterWorker((AnvilToCubicChunksConverter) ConverterRegistry.getConverter(SaveFormat.VANILLA_ANVIL, SaveFormat.CUBIC_CHUNKS),
-			srcPath, dstPath, progressBar, convertFill, ioFill, () -> {
+		WorldConverter<?, ?> converter = new WorldConverter<>(
+			new Anvil2CCLevelInfoConverter(srcPath, dstPath),
+			new AnvilChunkReader(srcPath),
+			new Anvil2CCDataConverter(),
+			new CubicChunkWriter(dstPath)
+		);
+		ConverterWorker w = new ConverterWorker(converter, progressBar, convertFill, ioFill, () -> {
 			isConverting = false;
 			progressBar.setString("Done!");
 			progressBar.setValue(0);
