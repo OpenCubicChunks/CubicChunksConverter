@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.anvil2cc;
+package cubicchunks.converter.lib.convert.anvil2cc;
 
 import static java.util.Collections.singletonList;
 
@@ -33,7 +33,9 @@ import com.flowpowered.nbt.DoubleTag;
 import com.flowpowered.nbt.IntArrayTag;
 import com.flowpowered.nbt.IntTag;
 import com.flowpowered.nbt.ListTag;
-import cubicchunks.converter.lib.Utils;
+import cubicchunks.converter.lib.util.Utils;
+import cubicchunks.converter.lib.convert.data.AnvilChunkData;
+import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
@@ -47,14 +49,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData, ConvertedCubicChunksData> {
+public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData, CubicChunksColumnData> {
 
-    public ConvertedCubicChunksData convert(AnvilChunkData input) {
+    public CubicChunksColumnData convert(AnvilChunkData input) {
         try {
             Map<Integer, ByteBuffer> cubes = extractCubeData(input.getData());
             ByteBuffer column = extractColumnData(input.getData());
             EntryLocation2D location = new EntryLocation2D(input.getPosition().getEntryX(), input.getPosition().getEntryZ());
-            return new ConvertedCubicChunksData(input.getDimension(), location, column, cubes);
+            return new CubicChunksColumnData(input.getDimension(), location, column, cubes);
         } catch (IOException impossible) {
             throw new Error("ByteArrayInputStream doesn't throw IOException", impossible);
         }
@@ -65,7 +67,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         ByteArrayInputStream in = new ByteArrayInputStream(vanillaData.array());
         CompoundTag tag = Utils.readCompressed(in);
         CompoundTag columnTag = extractColumnData(tag);
-        return Utils.writeCompressed(columnTag, true);
+        return Utils.writeCompressed(columnTag, false);
     }
 
     private CompoundTag extractColumnData(CompoundTag tag) throws IOException {
@@ -132,7 +134,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
 
     private int[] fixHeightmap(int[] heights) {
         for (int i = 0; i < heights.length; i++) {
-            heights[i]--; // vanilla = 1 above top, cc = top block
+            heights[i]--; // vanilla = 1 above top, data = top block
         }
         return heights;
     }
@@ -156,7 +158,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         Map<Integer, CompoundTag> tags = extractCubeData(Utils.readCompressed(in));
         Map<Integer, ByteBuffer> bytes = new HashMap<>();
         for (Integer y : tags.keySet()) {
-            bytes.put(y, Utils.writeCompressed(tags.get(y), true));
+            bytes.put(y, Utils.writeCompressed(tags.get(y), false));
         }
         return bytes;
     }

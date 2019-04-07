@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.anvil2cc;
+package cubicchunks.converter.lib.convert.anvil2cc;
 
 import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
@@ -31,7 +31,9 @@ import com.flowpowered.nbt.Tag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.Dimensions;
-import cubicchunks.converter.lib.Utils;
+import cubicchunks.converter.lib.util.Utils;
+import cubicchunks.converter.lib.convert.data.AnvilChunkData;
+import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 
 import java.io.FileInputStream;
@@ -40,7 +42,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunkData, ConvertedCubicChunksData> {
+public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunkData, CubicChunksColumnData> {
 
     private final Path srcDir;
     private final Path dstDir;

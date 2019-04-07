@@ -82,7 +82,9 @@ repositories {
 
 dependencies {
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
-    compile("io.github.opencubicchunks:regionlib:0.54.0-SNAPSHOT")
+    compile("io.github.opencubicchunks:regionlib:0.55.0-SNAPSHOT")
+    compile("com.carrotsearch:hppc:0.8.1")
+    compile("com.google.guava:guava:27.0.1-jre")
     testCompile("junit:junit:4.11")
 }
 
@@ -91,11 +93,11 @@ jar.apply {
         attributes["Main-Class"] = "cubicchunks.converter.gui.ConverterGui"
     }
 }
-
+/*
 val javadocJar by tasks.creating(Jar::class) {
     classifier = "javadoc"
     from(tasks["javadoc"])
-}
+}*/
 val sourcesJar by tasks.creating(Jar::class) {
     classifier = "sources"
     from(sourceSets["main"].java.srcDirs)
@@ -182,7 +184,7 @@ uploadArchives.apply {
 // tasks must be before artifacts, don't change the order
 artifacts {
     withGroovyBuilder {
-        "archives"(tasks["jar"], shadowJar, sourcesJar, javadocJar)
+        "archives"(tasks["jar"], shadowJar, sourcesJar)
     }
 }
 

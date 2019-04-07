@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.anvil2cc;
+package cubicchunks.converter.lib.convert.data;
 
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;

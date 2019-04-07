@@ -21,26 +21,18 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.convert;
+package cubicchunks.converter.lib.convert.data;
 
-import cubicchunks.converter.lib.conf.ConverterConfig;
+import java.util.Map;
 
-import java.util.HashMap;
+public class MultilayerAnvilChunkData {
+    private final Map<Integer, AnvilChunkData> worlds;
 
-/**
- * Converts chunk data from {@link IN} format to {@link OUT} format.
- */
-public interface ChunkDataConverter<IN, OUT> {
+    public MultilayerAnvilChunkData(Map<Integer, AnvilChunkData> worlds) {
+        this.worlds = worlds;
+    }
 
-    /**
-     * Converts the supplied input. This is expected to be called from multiple threads.
-     *
-     * @param input The chunk data to convert
-     * @return The converted chunk data
-     */
-    OUT convert(IN input);
-
-    default ConverterConfig getConfig() {
-        return null;
+    public Map<Integer, AnvilChunkData> getWorlds() {
+        return worlds;
     }
 }

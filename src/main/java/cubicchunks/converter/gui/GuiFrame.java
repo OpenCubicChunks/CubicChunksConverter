@@ -23,26 +23,29 @@
  */
 package cubicchunks.converter.gui;
 
-import cubicchunks.converter.lib.Utils;
-import cubicchunks.converter.lib.anvil2cc.Anvil2CCDataConverter;
-import cubicchunks.converter.lib.anvil2cc.Anvil2CCLevelInfoConverter;
-import cubicchunks.converter.lib.anvil2cc.AnvilChunkReader;
-import cubicchunks.converter.lib.anvil2cc.CubicChunkWriter;
+import cubicchunks.converter.lib.Registry;
+import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.converter.lib.convert.WorldConverter;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextField;
@@ -65,6 +68,11 @@ public class GuiFrame extends JFrame {
 
     private JTextField srcPathField;
     private JTextField dstPathField;
+
+    private String inFormat = "Anvil";
+    private String outFormat = "CubicChunks";
+
+    private JComboBox<ConverterDesc> selectConverter;
 
     public void init() {
         try {
@@ -135,6 +143,28 @@ public class GuiFrame extends JFrame {
         label.setForeground(Color.RED);
         mainPanel.add(label, gbc);
 
+        JPanel formatSelect = new JPanel(new FlowLayout());
+        {
+            formatSelect.add(new JLabel("Converter: "));
+            selectConverter = new JComboBox<>();
+            for (Registry.ClassPair<?, ?> converter : Registry.getConverters()) {
+                ConverterDesc desc = new ConverterDesc(
+                    Registry.getReader(converter.getIn()),
+                    Registry.getWriter(converter.getOut())
+                );
+                selectConverter.addItem(desc);
+            }
+            selectConverter.setSelectedIndex(0);
+            formatSelect.add(selectConverter);
+        }
+
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        gbc.gridwidth = 1;
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        mainPanel.add(formatSelect, gbc);
+
         root.add(mainPanel, BorderLayout.CENTER);
         root.setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -158,7 +188,7 @@ public class GuiFrame extends JFrame {
         JLabel label = new JLabel(isSrc ? "Source: " : "Destination: ");
 
         Path srcPath = Utils.getApplicationDirectory().resolve("saves").resolve("New World");
-        Path dstPath = getDstForSrc(srcPath);
+        Path dstPath = getDstForSrc(srcPath, outFormat);
         JTextField path = new JTextField((isSrc ? srcPath : dstPath).toString());
         if (isSrc) {
             this.srcPathField = path;
@@ -195,7 +225,7 @@ public class GuiFrame extends JFrame {
             chooser.setCurrentDirectory(getDefaultSaveLocation().toFile());
             int result = chooser.showDialog(this, "Select");
             if (result == JFileChooser.APPROVE_OPTION) {
-                onSelectLocation(isSrc, chooser);
+                onSelectLocation(isSrc, chooser, outFormat);
             }
         });
         selectBtn.setPreferredSize(new Dimension(30, (int) path.getPreferredSize().getHeight()));
@@ -231,13 +261,13 @@ public class GuiFrame extends JFrame {
         convertBtn.setEnabled(!isConverting && Utils.isValidPath(dstPathField.getText()) && Utils.fileExists(srcPathField.getText()));
     }
 
-    private void onSelectLocation(boolean isSrc, JFileChooser chooser) {
+    private void onSelectLocation(boolean isSrc, JFileChooser chooser, String format) {
         Path file = chooser.getSelectedFile().toPath();
 
         if (isSrc) {
             srcPathField.setText(file.toString());
             if (!hasChangedDst) {
-                dstPathField.setText(getDstForSrc(file).toString());
+                dstPathField.setText(getDstForSrc(file, format).toString());
             }
         } else {
             dstPathField.setText(file.toString());
@@ -246,8 +276,8 @@ public class GuiFrame extends JFrame {
         updateConvertBtn();
     }
 
-    private Path getDstForSrc(Path src) {
-        return src.getParent().resolve(src.getFileName().toString() + " - CubicChunks");
+    private Path getDstForSrc(Path src, String outFormat) {
+        return src.getParent().resolve(src.getFileName().toString() + " - " + outFormat);
     }
 
     private Path getDefaultSaveLocation() {
@@ -267,23 +297,88 @@ public class GuiFrame extends JFrame {
             updateConvertBtn();
             return;
         }
+        if (Files.exists(dstPath) && !Files.isDirectory(dstPath)) {
+            JOptionPane.showMessageDialog(this, "The destination is not a directory!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            if (!Utils.isEmpty(dstPath)) {
+                String[] options = {"Cancel", "Continue"};
+                int result = JOptionPane.showOptionDialog(this, "The selected destination directory is not empty.\nThis may result in overwriting "
+                        + "or losing all data in this directory!\n\nDo you want cancel and select another directory?",
+                    "Warning", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, "Cancel");
+                if (result == JOptionPane.CLOSED_OPTION) {
+                    return; // assume cancel
+                }
+                if (result == 0) {
+                    return;
+                }
+            }
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error while checking if destination directory is empty!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         progressBar.setStringPainted(true);
         convertFill.setStringPainted(true);
         ioFill.setStringPainted(true);
         isConverting = true;
         updateConvertBtn();
+
+        ConverterDesc desc = (ConverterDesc) selectConverter.getSelectedItem();
+        this.inFormat = desc.getIn();
+        this.outFormat = desc.getOut();
         WorldConverter<?, ?> converter = new WorldConverter<>(
-            new Anvil2CCLevelInfoConverter(srcPath, dstPath),
-            new AnvilChunkReader(srcPath),
-            new Anvil2CCDataConverter(),
-            new CubicChunkWriter(dstPath)
+            Registry.getLevelConverter(inFormat, outFormat).apply(srcPath, dstPath),
+            Registry.getReader(inFormat).apply(srcPath),
+            Registry.getConverter(inFormat, outFormat).get(),
+            Registry.getWriter(outFormat).apply(dstPath)
         );
         ConverterWorker w = new ConverterWorker(converter, progressBar, convertFill, ioFill, () -> {
             isConverting = false;
             progressBar.setString("Done!");
             progressBar.setValue(0);
+            convertFill.setValue(0);
+            ioFill.setValue(0);
             updateConvertBtn();
-        });
+        }, this);
         w.execute();
+    }
+
+    private static class ConverterDesc {
+        private final String in;
+        private final String out;
+
+        private ConverterDesc(String in, String out) {
+            this.in = in;
+            this.out = out;
+        }
+
+        public String getIn() {
+            return in;
+        }
+
+        public String getOut() {
+            return out;
+        }
+
+        @Override public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ConverterDesc that = (ConverterDesc) o;
+            return in.equals(that.in) &&
+                out.equals(that.out);
+        }
+
+        @Override public int hashCode() {
+            return Objects.hash(in, out);
+        }
+
+        @Override public String toString() {
+            return in + " -> " + out;
+        }
     }
 }

@@ -35,7 +35,7 @@ public class Dimensions {
     static {
         addDimension(new Dimension("Overworld", ""));
         addDimension(new Dimension("The Nether", "DIM-1"));
-        addDimension(new Dimension("Overworld", "DIM1"));
+        addDimension(new Dimension("The End", "DIM1"));
     }
 
     public static void addDimension(Dimension dim) {

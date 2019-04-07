@@ -23,43 +23,132 @@
  */
 package cubicchunks.converter.gui;
 
+import static java.awt.GridBagConstraints.HORIZONTAL;
+import static java.awt.GridBagConstraints.NONE;
+import static java.awt.GridBagConstraints.NORTH;
+import static java.awt.GridBagConstraints.NORTHWEST;
+
+import cubicchunks.converter.lib.IProgressListener;
 import cubicchunks.converter.lib.convert.WorldConverter;
 
+import java.awt.Dimension;
+import java.awt.EventQueue;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import javax.swing.JButton;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
 
 public class ConverterWorker extends SwingWorker<Throwable, Void> {
 
     private final WorldConverter converter;
+    private final JFrame parent;
     private JProgressBar progressBar;
     private JProgressBar convertQueueFill;
     private JProgressBar ioQueueFill;
     private Runnable onDone;
 
     public ConverterWorker(WorldConverter converter, JProgressBar progressBar, JProgressBar convertQueueFill,
-        JProgressBar ioQueueFill, Runnable onDone) {
+        JProgressBar ioQueueFill, Runnable onDone, JFrame parent) {
         this.converter = converter;
         this.progressBar = progressBar;
         this.convertQueueFill = convertQueueFill;
         this.ioQueueFill = ioQueueFill;
         this.onDone = onDone;
+        this.parent = parent;
     }
 
     @Override protected Throwable doInBackground() {
         try {
-            this.converter.convert(this::publish);
+            this.converter.convert(new IProgressListener() {
+                @Override public void update(Void progress) {
+                    publish(progress);
+                }
+
+                @Override public IProgressListener.ErrorHandleResult error(Throwable t) {
+                    try {
+                        CompletableFuture<ErrorHandleResult> future = new CompletableFuture<>();
+                        EventQueue.invokeAndWait(() -> future.complete(showErrorMessage(t)));
+                        return future.get();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return ErrorHandleResult.STOP_KEEP_DATA;
+                    }
+                }
+            });
         } catch (Throwable t) {
             t.printStackTrace();
             return t;
         }
         return null;
+    }
+
+    private IProgressListener.ErrorHandleResult showErrorMessage(Throwable error) {
+        String[] options = {"Ignore", "Ignore all", "Stop, delete results", "Stop, keep result"};
+        JPanel infoPanel = new JPanel(new GridBagLayout());
+
+        Insets insets = new Insets(3, 10, 3, 10);
+
+        JTextArea errorInfo = new JTextArea("An error occurred while converting chunks. Do you want to continue?");
+        errorInfo.setLineWrap(true);
+        errorInfo.setEditable(false);
+        errorInfo.setEnabled(false);
+        infoPanel.add(errorInfo, new GridBagConstraints(0, 0, 1, 1, 1, 1, NORTH, HORIZONTAL, insets, 0, 0));
+
+
+        JTextArea exceptionDetails = new JTextArea(exceptionString(error));
+        exceptionDetails.setEditable(false);
+        exceptionDetails.setLineWrap(false);
+
+        JScrollPane scrollPane = new JScrollPane(exceptionDetails);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setMinimumSize(new Dimension(100, 250));
+        scrollPane.setMaximumSize(new Dimension(500, 320));
+        scrollPane.setPreferredSize(new Dimension(640, 400));
+
+        JButton moreDetails = new JButton();
+        moreDetails.setText("Show details...");
+        moreDetails.addActionListener(e -> {
+            JOptionPane.showConfirmDialog(infoPanel, scrollPane, "Error details", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE);
+        });
+        infoPanel.add(moreDetails, new GridBagConstraints(0, 1, 1, 1, 1, 1, NORTHWEST, NONE, insets, 0, 0));
+
+        int code = JOptionPane.showOptionDialog(
+            parent,
+            infoPanel,
+            "An error occurred while converting chunks", 0, JOptionPane.ERROR_MESSAGE,
+            null, options, "Ignore");
+        if (code == JOptionPane.CLOSED_OPTION) {
+            return IProgressListener.ErrorHandleResult.IGNORE;
+        }
+        switch (code) {
+            case 0:
+                return IProgressListener.ErrorHandleResult.IGNORE;
+            case 1:
+                return IProgressListener.ErrorHandleResult.IGNORE_ALL;
+            case 2:
+                return IProgressListener.ErrorHandleResult.STOP_DISCARD;
+            case 3:
+                return IProgressListener.ErrorHandleResult.STOP_KEEP_DATA;
+            default:
+                assert false;
+                return IProgressListener.ErrorHandleResult.IGNORE;
+        }
     }
 
     @Override protected void process(List<Void> l) {
@@ -99,6 +188,10 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
         if (t == null) {
             return;
         }
+        JOptionPane.showMessageDialog(null, exceptionString(t));
+    }
+
+    private static String exceptionString(Throwable t) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream ps;
         try {
@@ -108,12 +201,6 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
         }
         t.printStackTrace(ps);
         ps.close();
-        String str;
-        try {
-            str = new String(out.toByteArray(), "UTF-8");
-        } catch (UnsupportedEncodingException e1) {
-            throw new Error(e1);
-        }
-        JOptionPane.showMessageDialog(null, str);
+        return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 }

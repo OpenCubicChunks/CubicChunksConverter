@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.anvil2cc;
+package cubicchunks.converter.lib.convert.data;
 
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -30,14 +30,14 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Objects;
 
-public class ConvertedCubicChunksData {
+public class CubicChunksColumnData {
 
     private final Dimension dimension;
     private final EntryLocation2D position;
     private final ByteBuffer columnData;
     private final Map<Integer, ByteBuffer> cubeData;
 
-    public ConvertedCubicChunksData(Dimension dimension, EntryLocation2D position, ByteBuffer columnData,
+    public CubicChunksColumnData(Dimension dimension, EntryLocation2D position, ByteBuffer columnData,
         Map<Integer, ByteBuffer> cubeData) {
         this.dimension = dimension;
         this.position = position;
@@ -68,10 +68,10 @@ public class ConvertedCubicChunksData {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ConvertedCubicChunksData that = (ConvertedCubicChunksData) o;
+        CubicChunksColumnData that = (CubicChunksColumnData) o;
         return dimension.equals(that.dimension) &&
             position.equals(that.position) &&
-            columnData.equals(that.columnData) &&
+            Objects.equals(columnData, that.columnData) &&
             cubeData.equals(that.cubeData);
     }
 
@@ -80,7 +80,7 @@ public class ConvertedCubicChunksData {
     }
 
     @Override public String toString() {
-        return "ConvertedCubicChunksData{" +
+        return "CubicChunksColumnData{" +
             "dimension='" + dimension + '\'' +
             ", position=" + position +
             ", columnData=" + columnData +

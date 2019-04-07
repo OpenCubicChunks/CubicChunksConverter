@@ -21,11 +21,13 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib;
+package cubicchunks.converter.lib.util;
 
 import com.flowpowered.nbt.CompoundTag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
+import cubicchunks.regionlib.util.CheckedConsumer;
+import cubicchunks.regionlib.util.CheckedFunction;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -34,13 +36,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -48,13 +56,44 @@ import java.util.zip.InflaterInputStream;
 
 public class Utils {
 
+    /**
+     * Returns a consumer that checks for interruption, and throws {@link UncheckedInterruptedException}
+     * if thread is interrupted.
+     */
+    public static <T, E extends Throwable> CheckedConsumer<T, E> interruptibleConsumer(CheckedConsumer<T, E> cons) {
+        return x -> {
+            if (Thread.interrupted()) {
+                throw new UncheckedInterruptedException();
+            }
+            cons.accept(x);
+        };
+    }
+
+    // from one of the replies in https://stackoverflow.com/questions/27644361/how-can-i-throw-checked-exceptions-from-inside-java-8-streams
+    public static <IN, OUT> Function<IN, OUT> propagateExceptions(CheckedFunction<IN, OUT, ?> func) {
+        return x -> {
+            try {
+                return func.apply(x);
+            } catch (Throwable t) {
+                return throwUnchecked(t);
+            }
+        };
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T, E extends Throwable> T throwUnchecked(Throwable t) throws E {
+        throw (E) t;
+    }
+
     // Files.createDirectories doesn't handle symlinks
     public static void createDirectories(Path dir) throws IOException {
         if (Files.isDirectory(dir)) {
             return;
         }
         createDirectories(dir.getParent());
-        Files.createDirectory(dir);
+        try {
+            Files.createDirectory(dir);
+        } catch (FileAlreadyExistsException ex) {}
     }
 
     public static boolean isValidPath(String text) {
@@ -145,17 +184,56 @@ public class Utils {
         return (CompoundTag) new NBTInputStream(data, false).readTag();
     }
 
-    public static ByteBuffer writeCompressed(CompoundTag tag, boolean compress) throws IOException {
+    public static CompoundTag readCompressedCC(InputStream is) throws IOException {
+        BufferedInputStream data = new BufferedInputStream(new GZIPInputStream(is));
+        return (CompoundTag) new NBTInputStream(data, false).readTag();
+    }
+
+    public static ByteBuffer writeCompressed(CompoundTag tag, boolean prefixFormat) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes) {{
-            if (!compress) {
-                this.def.setLevel(Deflater.NO_COMPRESSION);
-            }
-        }}), false);
+        if (prefixFormat) {
+            bytes.write(1); // mark as GZIP
+        }
+        NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes)), false);
         nbtOut.writeTag(tag);
         nbtOut.close();
         bytes.flush();
         return ByteBuffer.wrap(bytes.toByteArray());
+    }
+
+    /**
+     * Deletes the specified file or directory, recursively
+     */
+    public static void rm(Path toDelete) throws IOException {
+        if (Files.isDirectory(toDelete)) {
+            try (Stream<Path> files = Files.list(toDelete)) {
+                for (Path path : files.collect(Collectors.toList())) {
+                    rm(path);
+                }
+            }
+            Files.delete(toDelete);
+        } else {
+            Files.delete(toDelete);
+        }
+    }
+
+    public static boolean isEmpty(final Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return true;
+        }
+        try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
+            return !dirStream.iterator().hasNext();
+        }
+    }
+
+    public static <E extends Throwable> void forEachDirectory(Path directory, CheckedConsumer<Path, E> consumer) throws E, IOException {
+        try(DirectoryStream<Path> dirStream = Files.newDirectoryStream(directory)) {
+            for (Path path : dirStream) {
+                if (Files.isDirectory(path)) {
+                    consumer.accept(path);
+                }
+            }
+        }
     }
 
     private enum OS {

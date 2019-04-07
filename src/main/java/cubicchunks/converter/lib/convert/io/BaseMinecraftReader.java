@@ -21,69 +21,37 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.anvil2cc;
-
-import static cubicchunks.regionlib.impl.save.MinecraftSaveSection.MinecraftRegionType.MCA;
+package cubicchunks.converter.lib.convert.io;
 
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.convert.ChunkDataReader;
-import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
 
+import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
-public class AnvilChunkReader implements ChunkDataReader<AnvilChunkData> {
+public abstract class BaseMinecraftReader<DATA, SAVE extends Closeable> implements ChunkDataReader<DATA> {
+    protected final Path srcDir;
+    protected final Map<Dimension, SAVE> saves;
 
-    private static final BiFunction<Dimension, Path, Path> LOCATION_FUNC_SRC = (d, p) -> {
-        if (!d.getDirectory().isEmpty()) {
-            p = p.resolve(d.getDirectory());
-        }
-        return p.resolve("region");
-    };
-
-    private final Map<Dimension, MinecraftSaveSection> saves = new ConcurrentHashMap<>();
-    private final Path srcDir;
-
-    public AnvilChunkReader(Path srcDir) {
+    public BaseMinecraftReader(Path srcDir, BiFunction<Dimension, Path, SAVE> pathToSave) {
         this.srcDir = srcDir;
+        this.saves = new ConcurrentHashMap<>();
         for (Dimension d : Dimensions.getDimensions()) {
-            Path srcLoc = LOCATION_FUNC_SRC.apply(d, srcDir);
-            if (!Files.exists(srcLoc)) {
-                continue;
+            SAVE save = pathToSave.apply(d, srcDir);
+            if (save != null) {
+                saves.put(d, save);
             }
-
-            MinecraftSaveSection vanillaSave = MinecraftSaveSection.createAt(LOCATION_FUNC_SRC.apply(d, srcDir), MCA);
-            saves.put(d, vanillaSave);
-        }
-    }
-
-    @Override public void countInputChunks(Runnable increment) throws IOException {
-        for (MinecraftSaveSection save : saves.values()) {
-            save.forAllKeys(loc -> increment.run());
-        }
-    }
-
-    @Override public void loadChunks(Consumer<? super AnvilChunkData> consumer) throws IOException {
-        for (Dimension d : Dimensions.getDimensions()) {
-            Path srcLoc = LOCATION_FUNC_SRC.apply(d, srcDir);
-            if (!Files.exists(srcLoc)) {
-                continue;
-            }
-
-            MinecraftSaveSection vanillaSave = saves.get(d);
-            vanillaSave.forAllKeys(mcPos -> consumer.accept(new AnvilChunkData(d, mcPos, vanillaSave.load(mcPos).orElse(null))));
         }
     }
 
     @Override public void close() throws Exception {
         boolean exception = false;
-        for (MinecraftSaveSection save : saves.values()) {
+        for (SAVE save : saves.values()) {
             try {
                 save.close();
             } catch (IOException e) {

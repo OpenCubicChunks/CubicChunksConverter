@@ -39,4 +39,9 @@ public interface ChunkDataWriter<T> extends AutoCloseable {
      * called from a thread running in the background.
      */
     void accept(T t) throws IOException;
+
+    /**
+     * Deletes all written data.
+     */
+    void discardData() throws IOException;
 }
