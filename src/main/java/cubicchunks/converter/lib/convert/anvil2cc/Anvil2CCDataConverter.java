@@ -240,11 +240,13 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
                     level.put(new IntTag("y", y));
                     level.put(new IntTag("z", z));
 
-                    level.put(new ByteTag("populated", (Byte) srcLevel.get("TerrainPopulated").getValue()));
-                    level.put(new ByteTag("fullyPopulated", (Byte) srcLevel.get("TerrainPopulated").getValue())); // TODO: handle this properly
+                    ByteTag populated = (ByteTag) srcLevel.get("TerrainPopulated");
+                    level.put(new ByteTag("populated", populated == null ? 0 : populated.getValue()));
+                    level.put(new ByteTag("fullyPopulated", populated == null ? 0 : populated.getValue())); // TODO: handle this properly
                     level.put(new ByteTag("isSurfaceTracked", (byte) 0)); // so that cubic chunks can re-make surface tracking data on it's own
 
-                    level.put(new ByteTag("initLightDone", (Byte) srcLevel.get("LightPopulated").getValue()));
+                    ByteTag lightPopulated = (ByteTag) srcLevel.get("LightPopulated");
+                    level.put(new ByteTag("initLightDone", lightPopulated == null ? 0 : lightPopulated.getValue()));
 
                     // the vanilla section has additional Y tag, it will be ignored by cubic chunks
                     level.put(new ListTag<>("Sections", CompoundTag.class, singletonList(fixSection(srcSection))));
