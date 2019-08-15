@@ -219,18 +219,31 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
         if (column != null) {
             CompoundMap columnLevel = (CompoundMap) column.getValue().get("Level").getValue();
             for (Tag<?> tag : columnLevel) {
-                if ("OpacityIndex".equals(tag.getName())) {
-                    level.put(getHeightMap(tag, layerIdx));
-                } else {
-                    level.put(tag);
+                switch (tag.getName()) {
+                    case "x":
+                        level.put(renamedInt(tag, "xPos"));
+                        break;
+                    case "z":
+                        level.put(renamedInt(tag, "zPos"));
+                        break;
+                    case "OpacityIndex":
+                        level.put(getHeightMap(tag, layerIdx));
+                        break;
+                    default:
+                        level.put(tag);
                 }
             }
-            level.put(columnLevel.get("InhabitedTime"));
-            level.put(columnLevel.get("Biomes"));
         }
+        // TODO: use existing heightmap? Is it safe?
+        int[] heights = new int[256];
+        Arrays.fill(heights, -999);
+        Tag<?> heightsTag = new IntArrayTag("HeightMap", heights);
+        level.put(heightsTag);
+
         for (CompoundTag cube : cubes) {
             if (cube != null) {
-                for (Tag<?> tag : cube.getValue()) {
+                CompoundTag cubeLevel = (CompoundTag) cube.getValue().get("Level");
+                for (Tag<?> tag : cubeLevel.getValue()) {
                     switch (tag.getName()) {
                         case "x":
                             level.put(renamedInt(tag, "xPos"));
@@ -245,7 +258,7 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
         }
 
         level.put(getIsPopulated(cubes, layerIdx));
-        level.put(new ByteTag("LightPopulated", (byte) 0)); // let vanilla recalculate lighting
+        level.put(new ByteTag("LightPopulated", (byte) 1)); // can't let vanilla recalculate lighting because 1.14.x drops such chunks :(
 
         level.put(getSections(cubes));
         level.put(getEntities(cubes));

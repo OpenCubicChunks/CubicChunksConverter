@@ -25,6 +25,7 @@ package cubicchunks.converter.lib.convert.cc2anvil;
 
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import com.flowpowered.nbt.StringTag;
 import com.flowpowered.nbt.Tag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
@@ -59,7 +60,21 @@ public class CC2AnvilLevelInfoConverter implements LevelInfoConverter<CubicChunk
 
                 CompoundMap newRoot = new CompoundMap();
                 for (Tag<?> tag : root.getValue()) {
-                    if (!tag.getName().equals("isCubicWorld")) {
+                    if (tag.getName().equals("Data")) {
+                        CompoundTag data = (CompoundTag) tag;
+                        CompoundMap newDataMap = new CompoundMap();
+                        for (Tag<?> dataTag : data.getValue()) {
+                            if (dataTag.getName().equals("isCubicWorld")) {
+                                continue;
+                            }
+                            if (dataTag.getName().equalsIgnoreCase("generatorName")) {
+                                newDataMap.put(new StringTag(dataTag.getName(), getGeneratorName((String) dataTag.getValue())));
+                            } else {
+                                newDataMap.put(dataTag);
+                            }
+                        }
+                        newRoot.put(new CompoundTag("Data", newDataMap));
+                    } else {
                         newRoot.put(tag);
                     }
                 }
@@ -68,7 +83,8 @@ public class CC2AnvilLevelInfoConverter implements LevelInfoConverter<CubicChunk
                 nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
 
                 Utils.copyEverythingExcept(srcPath, srcPath, dir, file ->
-                        file.toString().contains("level.dat") ||
+                        file.toString().contains("level.dat") || file.toString().endsWith("custom_generator_settings.json")
+                                || file.toString().endsWith("cubicChunksData.dat") || file.toString().endsWith("cubicchunks_spawncubes.dat") ||
                             Dimensions.getDimensions().stream().anyMatch(dim ->
                                 srcPath.resolve(dim.getDirectory()).resolve("region2d").equals(file)
                                     || srcPath.resolve(dim.getDirectory()).resolve("region3d").equals(file)
@@ -78,5 +94,17 @@ public class CC2AnvilLevelInfoConverter implements LevelInfoConverter<CubicChunk
                 );
             }
         });
+    }
+
+    private String getGeneratorName(String value) {
+        switch (value) {
+            case "CustomCubic":
+            case "VanillaCubic":
+                return "default";
+            case "FlatCubic":
+                return "flat";
+            default:
+                return value;
+        }
     }
 }

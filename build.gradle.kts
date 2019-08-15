@@ -3,18 +3,8 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import nl.javadude.gradle.plugins.license.LicenseExtension
 import nl.javadude.gradle.plugins.license.LicensePlugin
 import org.ajoberstar.grgit.Grgit
-import org.ajoberstar.grgit.exception.GrgitException
 import org.ajoberstar.grgit.operation.DescribeOp
-import org.eclipse.jgit.errors.RepositoryNotFoundException
-import org.gradle.api.JavaVersion
 import org.gradle.api.internal.HasConvention
-import org.gradle.api.plugins.JavaPlugin
-import org.gradle.api.plugins.JavaPluginConvention
-import org.gradle.api.tasks.Upload
-import org.gradle.plugins.signing.Sign
-import org.gradle.plugins.signing.SigningExtension
-import org.gradle.plugins.signing.SigningPlugin
-import org.gradle.script.lang.kotlin.*
 
 buildscript {
     repositories {
@@ -82,7 +72,7 @@ repositories {
 
 dependencies {
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
-    compile("io.github.opencubicchunks:regionlib:0.55.0-SNAPSHOT")
+    compile("io.github.opencubicchunks:regionlib:0.58.0-SNAPSHOT")
     compile("com.carrotsearch:hppc:0.8.1")
     compile("com.google.guava:guava:27.0.1-jre")
     testCompile("junit:junit:4.11")
