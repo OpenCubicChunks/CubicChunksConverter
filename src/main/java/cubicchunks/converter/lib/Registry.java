@@ -37,10 +37,17 @@ import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
+import cubicchunks.converter.lib.convert.data.RobintonColumnData;
 import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
 import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
 import cubicchunks.converter.lib.convert.io.CubicChunkReader;
 import cubicchunks.converter.lib.convert.io.CubicChunkWriter;
+import cubicchunks.converter.lib.convert.io.NoopChunkWriter;
+import cubicchunks.converter.lib.convert.io.RobintonChunkReader;
+import cubicchunks.converter.lib.convert.noop.NoopDataConverter;
+import cubicchunks.converter.lib.convert.noop.NoopLevelInfoConverter;
+import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
+import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
 
 import java.nio.file.Path;
 import java.util.Objects;
@@ -61,12 +68,33 @@ public class Registry {
     static {
         registerReader("Anvil", AnvilChunkReader::new, AnvilChunkData.class);
         registerReader("CubicChunks", CubicChunkReader::new, CubicChunksColumnData.class);
+        registerReader("RobintonCubicChunks", RobintonChunkReader::new, RobintonColumnData.class);
 
         registerWriter("Anvil", AnvilChunkWriter::new, MultilayerAnvilChunkData.class);
         registerWriter("CubicChunks", CubicChunkWriter::new, CubicChunksColumnData.class);
 
         registerConverter(Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class);
         registerConverter(CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class);
+        registerConverter(Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class);
+
+        registerNoops();
+    }
+
+    private static void registerNoops() {
+        registerWriter("No-op (debug)", NoopChunkWriter::new, Object.class);
+        for (String reader : readersByName.keySet()) {
+            Class<Object> dataClass = getReaderClass(reader);
+            //noinspection Convert2Lambda,Anonymous2MethodRef this needs to be anonymous class to guarantee they are all different objects
+            registerConverter(new Supplier<ChunkDataConverter<Object, Object>>() {
+                @Override public ChunkDataConverter<Object, Object> get() {
+                    return new NoopDataConverter();
+                }
+            }, new BiFunction<Path, Path, LevelInfoConverter<Object, Object>>() {
+                @Override public LevelInfoConverter<Object, Object> apply(Path p1, Path p2) {
+                    return new NoopLevelInfoConverter(p1, p2);
+                }
+            }, dataClass, Object.class);
+        }
     }
 
     // can't have all named register because of type erasure

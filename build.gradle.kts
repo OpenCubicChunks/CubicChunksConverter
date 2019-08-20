@@ -72,9 +72,10 @@ repositories {
 
 dependencies {
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
-    compile("io.github.opencubicchunks:regionlib:0.58.0-SNAPSHOT")
+    compile("io.github.opencubicchunks:regionlib:0.60.0-SNAPSHOT")
     compile("com.carrotsearch:hppc:0.8.1")
     compile("com.google.guava:guava:27.0.1-jre")
+    compile(project(":nbt"))
     testCompile("junit:junit:4.11")
 }
 

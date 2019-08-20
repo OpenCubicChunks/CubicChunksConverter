@@ -205,6 +205,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
          *  |- populated
          *  |- fullyPopulated
          *  |- initLightDone
+         *  |- isSurfaceTracked
          *  |- Sections
          *  ||* A single section
          *  | |- Blocks

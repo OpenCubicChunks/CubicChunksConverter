@@ -37,8 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class WorldConverter<IN, OUT> {
 
     private static final int THREADS = Runtime.getRuntime().availableProcessors();
-    private static final int CONVERT_QUEUE_SIZE = 32 * THREADS;
-    private static final int IO_QUEUE_SIZE = 8 * THREADS;
+    private static final int CONVERT_QUEUE_SIZE = 64 * THREADS;
+    private static final int IO_QUEUE_SIZE = 32 * THREADS;
 
     private final LevelInfoConverter<IN, OUT> levelConverter;
     private final ChunkDataReader<IN> reader;

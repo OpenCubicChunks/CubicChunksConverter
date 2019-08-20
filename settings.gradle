@@ -8,5 +8,5 @@ def configureGradleScriptKotlinOn(ProjectDescriptor project) {
 
 configureGradleScriptKotlinOn rootProject
 
-
+include ":nbt"
 
