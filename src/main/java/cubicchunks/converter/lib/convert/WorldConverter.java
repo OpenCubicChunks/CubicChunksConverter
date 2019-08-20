@@ -95,6 +95,9 @@ public class WorldConverter<IN, OUT> {
     public void convert(IProgressListener progress) throws IOException {
         startCounting();
 
+        System.out.println("Starting conversion");
+
+        long startTime = System.nanoTime();
         try {
             reader.loadChunks(inData -> {
                 convertQueue.submit(new ChunkConvertTask<>(converter, writer, progress, this, ioQueue, inData));
@@ -146,6 +149,8 @@ public class WorldConverter<IN, OUT> {
         if (!errored) {
             levelConverter.convert();
         }
+        double dt = (System.nanoTime() - startTime) / (double) TimeUnit.SECONDS.toNanos(1);
+        System.out.println("Conversion time = " + dt);
     }
 
     public int getSubmittedChunks() {

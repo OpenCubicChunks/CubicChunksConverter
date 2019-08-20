@@ -56,8 +56,7 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
             Map<Integer, ByteBuffer> newData = new HashMap<>();
             for (int y : input.getCubeData().keySet()) {
                 ByteBuffer buf = input.getCubeData().get(y);
-                ByteArrayInputStream in = new ByteArrayInputStream(buf.array());
-                CompoundTag tag = readCompressed(in);
+                CompoundTag tag = readCompressed(buf);
 
                 CompoundTag oldLevel = tag.getCompound("Level");
                 CompoundTag newLevel = convertCube(input, oldLevel, y);
@@ -124,9 +123,9 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
         newLevel.putInt("y", y);
         newLevel.putInt("z", input.getPosition().getEntryZ());
         newLevel.putBoolean("populated", oldLevel.getBoolean("TerrainPopulated"));
-        newLevel.putByte("fullyPopulated", (byte) 0);
-        newLevel.putByte("initLightDone", (byte) 0);
-        newLevel.putByte("isSurfaceTracked", (byte) 0);
+        newLevel.putBoolean("fullyPopulated", true);
+        newLevel.putBoolean("initLightDone", true);
+        newLevel.putBoolean("isSurfaceTracked", false);
 
         CompoundTag section = new CompoundTag();
         {
@@ -191,7 +190,8 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
     }
 
 
-    public static CompoundTag readCompressed(InputStream is) throws IOException {
+    public static CompoundTag readCompressed(ByteBuffer buf) throws IOException {
+        InputStream is = new ByteArrayInputStream(buf.array());
         int i = is.read();
         BufferedInputStream data;
         if (i == 1) {
@@ -206,8 +206,8 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
     }
 
     private static ByteBuffer writeCompressed(CompoundTag tag) throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        OutputStream nbtOut = new BufferedOutputStream(new GZIPOutputStream(bytes));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(4096);
+        OutputStream nbtOut = new BufferedOutputStream(new GZIPOutputStream(bytes, 4096), 4096);
         TagIO.writeOutputStream(TagTypeMaps.ROBINTON, tag, nbtOut);
         nbtOut.close();
         bytes.flush();
