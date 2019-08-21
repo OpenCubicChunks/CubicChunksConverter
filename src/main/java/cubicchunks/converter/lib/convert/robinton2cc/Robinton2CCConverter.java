@@ -122,7 +122,8 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
         newLevel.putInt("x", input.getPosition().getEntryX());
         newLevel.putInt("y", y);
         newLevel.putInt("z", input.getPosition().getEntryZ());
-        newLevel.putBoolean("populated", oldLevel.getBoolean("TerrainPopulated"));
+        // some old worlds don't appear to have this flag, and populating those chunks again causes weird effects
+        newLevel.putBoolean("populated", !oldLevel.contains("TerrainPopulated") || oldLevel.getBoolean("TerrainPopulated"));
         newLevel.putBoolean("fullyPopulated", true);
         newLevel.putBoolean("initLightDone", true);
         newLevel.putBoolean("isSurfaceTracked", false);

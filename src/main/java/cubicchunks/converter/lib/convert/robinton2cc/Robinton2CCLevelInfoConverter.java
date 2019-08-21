@@ -95,7 +95,7 @@ public class Robinton2CCLevelInfoConverter implements LevelInfoConverter<Robinto
         CompoundTag dstData = new CompoundTag();
         CompoundTag srcData = srcTag.getCompound("Data");
         dstData.putBoolean("isCubicWorld", true);
-        dstData.putString("generatorName", "default");
+        dstData.putString("generatorName", "CustomCubic");
         dstData.putInt("generatorVersion", 1);
         dstData.putBoolean("MapFeatures", true);
         dstData.putInt("version", 19133); // marks this world as MC 1.2.x anvil world
