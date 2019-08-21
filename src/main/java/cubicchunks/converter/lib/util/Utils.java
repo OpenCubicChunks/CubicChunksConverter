@@ -96,18 +96,29 @@ public class Utils {
         } catch (FileAlreadyExistsException ex) {}
     }
 
-    public static boolean isValidPath(String text) {
+    public static boolean isValidPath(String path) {
+        if (path.isEmpty()) {
+            return false;
+        }
         try {
-            Files.exists(Paths.get(text));
+            Files.exists(Paths.get(path));
             return true;
         } catch (InvalidPathException e) {
             return false;
         }
     }
 
-    public static boolean fileExists(String text) {
+    public static boolean fileExists(String path) {
         try {
-            return Files.exists(Paths.get(text));
+            return !path.isEmpty() && Files.exists(Paths.get(path));
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
+
+    public static boolean isDirectory(String path) {
+        try {
+            return !path.isEmpty() && Files.isDirectory(Paths.get(path));
         } catch (InvalidPathException e) {
             return false;
         }

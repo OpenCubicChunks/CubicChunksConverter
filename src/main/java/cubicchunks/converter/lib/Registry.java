@@ -50,6 +50,7 @@ import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -116,15 +117,15 @@ public class Registry {
         levelConvertersByClass.put(new ClassPair<>(in, out), levelConv);
     }
 
-    public static Iterable<String> getWriters() {
+    public static Collection<String> getWriters() {
         return writersByName.keySet();
     }
 
-    public static Iterable<String> getReaders() {
+    public static Collection<String> getReaders() {
         return readersByName.keySet();
     }
 
-    public static Iterable<ClassPair<?, ?>> getConverters() {
+    public static Collection<ClassPair<?, ?>> getConverters() {
         return convertersByClass.keySet();
     }
 
@@ -133,18 +134,26 @@ public class Registry {
         return (Function<Path, ? extends ChunkDataReader<T>>) readersByName.get(name);
     }
 
+    public static <T> Function<Path, ? extends ChunkDataReader<T>> getReader(Class<T> clazz) {
+        return getReader(getReaderName(clazz));
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> Function<Path, ? extends ChunkDataWriter<T>> getWriter(String name) {
         return (Function<Path, ? extends ChunkDataWriter<T>>) writersByName.get(name);
     }
 
+    public static <T> Function<Path, ? extends ChunkDataWriter<T>> getWriter(Class<?> clazz) {
+        return getWriter(getWriterName(clazz));
+    }
+
     @SuppressWarnings("unchecked")
-    public static String getReader(Class<?> clazz) {
+    public static String getReaderName(Class<?> clazz) {
         return readersByName.inverse().get(readersByClass.get(clazz));
     }
 
     @SuppressWarnings("unchecked")
-    public static String getWriter(Class<?> clazz) {
+    public static String getWriterName(Class<?> clazz) {
         return writersByName.inverse().get(writersByClass.get(clazz));
     }
 

@@ -149,8 +149,8 @@ public class GuiFrame extends JFrame {
             selectConverter = new JComboBox<>();
             for (Registry.ClassPair<?, ?> converter : Registry.getConverters()) {
                 ConverterDesc desc = new ConverterDesc(
-                    Registry.getReader(converter.getIn()),
-                    Registry.getWriter(converter.getOut())
+                    Registry.getReaderName(converter.getIn()),
+                    Registry.getWriterName(converter.getOut())
                 );
                 selectConverter.addItem(desc);
             }

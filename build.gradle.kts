@@ -61,27 +61,38 @@ configure<LicenseExtension> {
 
 repositories {
     mavenCentral()
+    jcenter()
     maven {
         setUrl("https://oss.sonatype.org/content/groups/public/")
     }
-    maven {
-        name = "mojang"
-        setUrl("https://libraries.minecraft.net/")
-    }
+}
+
+configurations {
+    create("linux_amd64")
+    create("win32_amd64")
+    configurations["compile"].extendsFrom(configurations["linux_amd64"], configurations["win32_amd64"])
 }
 
 dependencies {
+    val linux_amd64 by configurations
+    val win32_amd64 by configurations
     compile("com.flowpowered:flow-nbt:1.0.1-SNAPSHOT")
     compile("io.github.opencubicchunks:regionlib:0.60.0-SNAPSHOT")
     compile("com.carrotsearch:hppc:0.8.1")
     compile("com.google.guava:guava:27.0.1-jre")
+    linux_amd64("org.eclipse.platform:org.eclipse.swt.gtk.linux.x86_64:3.111.0") {
+        isTransitive = false
+    }
+    win32_amd64("org.eclipse.platform:org.eclipse.swt.win32.win32.x86_64:3.111.0") {
+        isTransitive = false
+    }
     compile(project(":nbt"))
     testCompile("junit:junit:4.11")
 }
 
 jar.apply {
     manifest.apply {
-        attributes["Main-Class"] = "cubicchunks.converter.gui.ConverterGui"
+        attributes["Main-Class"] = "cubicchunks.converter.swt.SwtConverterGui"
     }
 }
 /*
@@ -172,7 +183,7 @@ uploadArchives.apply {
     }
 }
 
-// tasks must be before artifacts, don't change the order
+// tasks must be before artifacts, don"t change the order
 artifacts {
     withGroovyBuilder {
         "archives"(tasks["jar"], shadowJar, sourcesJar)
@@ -225,7 +236,7 @@ fun getVersion_do(describe: String, branch: String): String {
 
     val baseVersionRegex = "v[0-9]+"
     val unknownVersion = String.format("UNKNOWN_VERSION%s", branchSuffix)
-    if (!describe.contains('-')) {
+    if (!describe.contains("-")) {
         //is it the "vX" format?
         if (describe.matches(Regex(baseVersionRegex))) {
             return String.format("%s.0.0%s", describe, branchSuffix)
