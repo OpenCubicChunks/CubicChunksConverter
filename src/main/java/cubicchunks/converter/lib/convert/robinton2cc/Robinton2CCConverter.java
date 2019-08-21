@@ -56,6 +56,9 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
             Map<Integer, ByteBuffer> newData = new HashMap<>();
             for (int y : input.getCubeData().keySet()) {
                 ByteBuffer buf = input.getCubeData().get(y);
+                if (buf == RobintonSaveSection.EMPTY_BUFFER) {
+                    newData.put(y, makeEmpty(input.getPosition().getEntryX(), y, input.getPosition().getEntryZ()));
+                }
                 CompoundTag tag = readCompressed(buf);
 
                 CompoundTag oldLevel = tag.getCompound("Level");
@@ -71,6 +74,28 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private ByteBuffer makeEmpty(int x, int y, int z) throws IOException {
+        CompoundTag level = new CompoundTag();
+
+        level.putInt("v", 1);
+        level.putInt("x", x);
+        level.putInt("y", y);
+        level.putInt("z", z);
+        // some old worlds don't appear to have this flag, and populating those chunks again causes weird effects
+        level.putBoolean("populated", true);
+        level.putBoolean("fullyPopulated", true);
+        level.putBoolean("initLightDone", true);
+        level.putBoolean("isSurfaceTracked", true);
+
+        level.put("LightingInfo", makeLightingInfo());
+
+
+        CompoundTag root = new CompoundTag();
+        root.put("Level", level);
+
+        return writeCompressed(root);
     }
 
     private CompoundTag convertCube(RobintonColumnData input, CompoundTag oldLevel, int y) {
