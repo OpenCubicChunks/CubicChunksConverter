@@ -90,7 +90,7 @@ public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunk
             nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
 
             Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
-                    file.toString().contains("level.dat") ||
+                    file.toString().contains("level.dat") || file.toString().contains("cubicChunksData.dat") ||
                         Dimensions.getDimensions().stream().anyMatch(dim ->
                             srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
                         ),
