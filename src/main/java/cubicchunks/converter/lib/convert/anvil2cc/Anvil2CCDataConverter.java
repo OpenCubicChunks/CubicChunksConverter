@@ -23,6 +23,7 @@
  */
 package cubicchunks.converter.lib.convert.anvil2cc;
 
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
 import com.flowpowered.nbt.ByteArrayTag;
@@ -291,8 +292,8 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
 
                 level.put(new ByteTag("initLightDone", false));
 
-                level.put(new ListTag<>("Entities", CompoundTag.class, singletonList(new CompoundTag("", new CompoundMap()))));
-                level.put(new ListTag<>("TileEntities", CompoundTag.class, singletonList(new CompoundTag("", new CompoundMap()))));
+                level.put(new ListTag<>("Entities", CompoundTag.class, emptyList()));
+                level.put(new ListTag<>("TileEntities", CompoundTag.class, emptyList()));
 
                 level.put(makeEmptyLightingInfo());
             }

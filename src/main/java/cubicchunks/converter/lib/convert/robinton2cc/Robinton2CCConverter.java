@@ -164,8 +164,8 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
         sections.add(section);
 
         newLevel.put("Sections", sections);
-        newLevel.put("TileEntities", oldLevel.getCompound("TileEntities"));
-        newLevel.put("Entities", oldLevel.getCompound("Entities"));
+        newLevel.put("TileEntities", oldLevel.getList("TileEntities"));
+        newLevel.put("Entities", oldLevel.getList("Entities"));
         newLevel.put("LightingInfo", makeLightingInfo());
         return newLevel;
     }
