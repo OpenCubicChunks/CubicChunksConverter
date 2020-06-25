@@ -1,0 +1,13 @@
+#THIS IS AN EXAMPLE STACKED CONFIG.
+#THIS IS USED FOR THE CC->CCStacked CONVERTER OPTION.
+t1 main 0
+t2 main 0
+
+t1 box 0 0 0 9 9 9
+t1 box 10 0 0 19 9 9
+t1 box 20 0 0 29 9 9
+
+t2 box 0 0 10 9 9 19
+t2 box 10 0 10 19 9 19
+t2 box 20 0 10 29 9 19
+t2 box 30 0 10 39 9 19
