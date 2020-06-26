@@ -48,6 +48,8 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,14 +57,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.WeakHashMap;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData, SaveCubeColumns> {
@@ -86,60 +83,45 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     @Override public void countInputChunks(Runnable increment) throws IOException {
         try {
-            Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = doCountChunks(increment);
+            Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimensions = doCountChunks(increment);
             chunkList.complete(new ChunkList(dimensions));
         } catch (UncheckedInterruptedException ex) {
             chunkList.complete(null);
         }
     }
 
-    private Map<Dimension, Map<EntryLocation2D, IntArrayList>> doCountChunks(Runnable increment) throws IOException, UncheckedInterruptedException {
-        Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = new HashMap<>();
+    private Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> doCountChunks(Runnable increment) throws IOException, UncheckedInterruptedException {
+        Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimensions = new HashMap<>();
         for (Map.Entry<Dimension, SaveCubeColumns> entry : saves.entrySet()) {
             SaveCubeColumns save = entry.getValue();
             Dimension dim = entry.getKey();
-            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new ConcurrentHashMap<>());
+            List<Map.Entry<EntryLocation2D, IntArrayList>> chunks = dimensions.computeIfAbsent(dim, p -> new ArrayList<>());
+            Map<EntryLocation2D, IntArrayList> chunksMap = new ConcurrentHashMap<>();
 
             List<IRegionProvider<EntryLocation3D>> regionProviders = providers3d.get(save);
 
             CheckedConsumer<EntryLocation3D, IOException> cons = interruptibleConsumer(loc -> {
-
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
-                chunks.computeIfAbsent(loc2d, l -> {
+                chunksMap.computeIfAbsent(loc2d, l -> {
                     increment.run();
-                    return new IntArrayList();
+                    IntArrayList arr = new IntArrayList();
+                    chunks.add(new AbstractMap.SimpleEntry<>(loc2d, arr));
+                    return arr;
                 }).add(loc.getEntryY());
             });
 
             for (int i = 0; i < regionProviders.size(); i++) {
                 IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
                 if (i == 0) {
-                    RejectedExecutionHandler handler = ((r, executor) -> {
+
+                    p.forAllRegions(reg -> {
                         try {
-                            if (!executor.isShutdown()) {
-                                executor.getQueue().put(r);
-                            }
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new RejectedExecutionException("Executor was interrupted while the task was waiting to put on work queue", e);
+                            reg.forEachKey(cons);
+                            reg.close();
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
                         }
                     });
-                    ArrayBlockingQueue<Runnable> convertQueueImpl = new ArrayBlockingQueue<>(256);
-
-                    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,
-                            1, 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
-                    threadPoolExecutor.setRejectedExecutionHandler(handler);
-                    p.forAllRegions(reg -> {
-                        threadPoolExecutor.submit(()-> {
-                            try {
-                                reg.forEachKey(cons);
-                                reg.close();
-                            } catch (IOException e) {
-                                throw new UncheckedIOException(e);
-                            }
-                        });
-                    });
-                    threadPoolExecutor.shutdown();
                 } else {
                     int max = i;
                     p.forAllRegions(reg -> {
@@ -177,13 +159,13 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
     }
 
     private void doLoadChunks(Consumer<? super CubicChunksColumnData> consumer, ChunkList list) throws IOException {
-        for (Map.Entry<Dimension, Map<EntryLocation2D, IntArrayList>> dimEntry : list.getChunks().entrySet()) {
+        for (Map.Entry<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
             }
             Dimension dim = dimEntry.getKey();
             SaveCubeColumns save = saves.get(dim);
-            dimEntry.getValue().entrySet().parallelStream().forEach(chunksEntry -> {
+            dimEntry.getValue().parallelStream().forEach(chunksEntry -> {
                 if (Thread.interrupted()) {
                     return;
                 }
@@ -277,13 +259,13 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private static class ChunkList {
 
-        private final Map<Dimension, Map<EntryLocation2D, IntArrayList>> chunks;
+        private final Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> chunks;
 
-        private ChunkList(Map<Dimension, Map<EntryLocation2D, IntArrayList>> chunks) {
+        private ChunkList(Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> chunks) {
             this.chunks = chunks;
         }
 
-        Map<Dimension, Map<EntryLocation2D, IntArrayList>> getChunks() {
+        Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> getChunks() {
             return chunks;
         }
     }
