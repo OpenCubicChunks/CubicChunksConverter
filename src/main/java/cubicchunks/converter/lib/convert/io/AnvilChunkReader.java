@@ -30,13 +30,11 @@ import static java.nio.file.Files.exists;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.util.MemoryReadRegion;
-import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
+import cubicchunks.converter.lib.util.ReadNoLockCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
 import cubicchunks.regionlib.impl.header.TimestampHeaderEntryProvider;
 import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
-import cubicchunks.regionlib.lib.Region;
-import cubicchunks.regionlib.lib.provider.SharedCachedRegionProvider;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
@@ -57,7 +55,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
 
     private static MinecraftSaveSection createSave(Dimension dim, Path path) {
         Path directory = getDimensionPath(dim, path);
-        return new MinecraftSaveSection(new RWLockingCachedRegionProvider<>(
+        return new MinecraftSaveSection(new ReadNoLockCachedRegionProvider<>(
                 new SimpleRegionProvider<>(new MinecraftChunkLocation.Provider(MCA.name().toLowerCase()), directory, (keyProvider, regionKey) ->
                         MemoryReadRegion.<MinecraftChunkLocation>builder()
                                 .setDirectory(directory)
@@ -66,7 +64,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
                                 .setRegionKey(regionKey)
                                 .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
                                 .build(),
-                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                        (file, key) -> Files.exists(file)
                 )
         ));
     }

@@ -74,7 +74,7 @@ public class AnvilChunkWriter implements ChunkDataWriter<MultilayerAnvilChunkDat
                                         .setRegionKey(regionKey)
                                         .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
                                         .build(),
-                                (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                                (file, key) -> Files.exists(file)
                         )
                 ));
             }));

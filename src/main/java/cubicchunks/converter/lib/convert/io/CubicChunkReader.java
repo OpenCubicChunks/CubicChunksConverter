@@ -23,15 +23,16 @@
  */
 package cubicchunks.converter.lib.convert.io;
 
+import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
+
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.MemoryReadRegion;
-import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
+import cubicchunks.converter.lib.util.ReadNoLockCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.converter.lib.util.Utils;
-import cubicchunks.regionlib.api.region.IRegion;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
@@ -39,19 +40,15 @@ import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.impl.save.SaveSection2D;
 import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
-import cubicchunks.regionlib.lib.Region;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 import cubicchunks.regionlib.util.CheckedConsumer;
-import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -62,15 +59,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-
-import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
 
 public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData, SaveCubeColumns> {
 
@@ -237,7 +230,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             IRegionProvider<EntryLocation2D> prov2d1, prov2d2;
             IRegionProvider<EntryLocation3D> prov3d1, prov3d2;
             SaveSection2D section2d = new SaveSection2D(
-                    prov2d1 = new RWLockingCachedRegionProvider<>(
+                    prov2d1 = new ReadNoLockCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation2D>()
                                             .setDirectory(part2d)
@@ -245,17 +238,17 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                             .setKeyProvider(keyProv2d)
                                             .setSectorSize(512)
                                             .build(),
-                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                                    (file, key) -> Files.exists(file)
                             )
                     ),
-                    prov2d2 = new RWLockingCachedRegionProvider<>(
+                    prov2d2 = new ReadNoLockCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
-                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
+                                    (file, key) -> Files.exists(file.resolveSibling(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
             SaveSection3D section3d = new SaveSection3D(
-                    prov3d1 = new RWLockingCachedRegionProvider<>(
+                    prov3d1 = new ReadNoLockCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation3D>()
                                             .setDirectory(part3d)
@@ -263,13 +256,13 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                             .setKeyProvider(keyProv3d)
                                             .setSectorSize(512)
                                             .build(),
-                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                                    (file, key) -> Files.exists(file)
                             )
                     ),
-                    prov3d2 = new RWLockingCachedRegionProvider<>(
+                    prov3d2 = new ReadNoLockCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
-                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
+                                    (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
 

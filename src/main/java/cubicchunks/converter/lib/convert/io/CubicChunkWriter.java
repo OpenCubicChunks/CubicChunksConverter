@@ -34,6 +34,7 @@ import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.impl.save.SaveSection2D;
 import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
+import cubicchunks.regionlib.lib.Region;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
@@ -68,22 +69,38 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
 
                 SaveSection2D section2d = new SaveSection2D(
                         new RWLockingCachedRegionProvider<>(
-                                SimpleRegionProvider.createDefault(new EntryLocation2D.Provider(), part2d, 512)
+                                new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d, (keyProv, r) ->
+                                        new Region.Builder<EntryLocation2D>()
+                                                .setDirectory(part2d)
+                                                .setRegionKey(r)
+                                                .setKeyProvider(keyProv)
+                                                .setSectorSize(512)
+                                                .build(),
+                                        (file, key) -> Files.exists(file)
+                                )
                         ),
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
                                         (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
-                                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
+                                        (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
                                 )
                         ));
                 SaveSection3D section3d = new SaveSection3D(
                         new RWLockingCachedRegionProvider<>(
-                                SimpleRegionProvider.createDefault(new EntryLocation3D.Provider(), part3d, 512)
+                                new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d, (keyProv, r) ->
+                                        new Region.Builder<EntryLocation3D>()
+                                                .setDirectory(part3d)
+                                                .setRegionKey(r)
+                                                .setKeyProvider(keyProv)
+                                                .setSectorSize(512)
+                                                .build(),
+                                        (file, key) -> Files.exists(file)
+                                )
                         ),
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
                                         (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
-                                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
+                                        (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
                                 )
                         ));
 
