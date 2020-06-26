@@ -81,7 +81,7 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
 
     @Override public synchronized Optional<ByteBuffer> readValue(K key) throws IOException {
         if (fileBuffer == null) {
-            this.fileBuffer = ByteBuffer.allocate((int) file.size());
+            this.fileBuffer = ByteBuffer.allocateDirect((int) file.size());
 
             file.position(0);
             file.read(fileBuffer);
