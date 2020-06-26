@@ -29,6 +29,7 @@ import static java.nio.file.Files.exists;
 
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
+import cubicchunks.converter.lib.util.MemoryReadRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
@@ -58,7 +59,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
         Path directory = getDimensionPath(dim, path);
         return new MinecraftSaveSection(new RWLockingCachedRegionProvider<>(
                 new SimpleRegionProvider<>(new MinecraftChunkLocation.Provider(MCA.name().toLowerCase()), directory, (keyProvider, regionKey) ->
-                        Region.<MinecraftChunkLocation>builder()
+                        MemoryReadRegion.<MinecraftChunkLocation>builder()
                                 .setDirectory(directory)
                                 .setSectorSize(4096)
                                 .setKeyProvider(keyProvider)

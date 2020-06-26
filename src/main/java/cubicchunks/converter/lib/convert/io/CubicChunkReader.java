@@ -27,6 +27,7 @@ import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.util.MemoryReadRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.converter.lib.util.Utils;
@@ -36,6 +37,7 @@ import cubicchunks.regionlib.impl.SaveCubeColumns;
 import cubicchunks.regionlib.impl.save.SaveSection2D;
 import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
+import cubicchunks.regionlib.lib.Region;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
@@ -157,9 +159,20 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             Path part3d = path.resolve("region3d");
             Utils.createDirectories(part3d);
 
+            EntryLocation2D.Provider keyProv2d = new EntryLocation2D.Provider();
+            EntryLocation3D.Provider keyProv3d = new EntryLocation3D.Provider();
+
             SaveSection2D section2d = new SaveSection2D(
                     new RWLockingCachedRegionProvider<>(
-                            SimpleRegionProvider.createDefault(new EntryLocation2D.Provider(), part2d, 512)
+                            new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
+                                    new MemoryReadRegion.Builder<EntryLocation2D>()
+                                            .setDirectory(part2d)
+                                            .setRegionKey(r)
+                                            .setKeyProvider(keyProv2d)
+                                            .setSectorSize(512)
+                                            .build(),
+                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                            )
                     ),
                     new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
@@ -169,7 +182,15 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     ));
             SaveSection3D section3d = new SaveSection3D(
                     new RWLockingCachedRegionProvider<>(
-                            SimpleRegionProvider.createDefault(new EntryLocation3D.Provider(), part3d, 512)
+                            new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
+                                    new MemoryReadRegion.Builder<EntryLocation3D>()
+                                            .setDirectory(part3d)
+                                            .setRegionKey(r)
+                                            .setKeyProvider(keyProv3d)
+                                            .setSectorSize(512)
+                                            .build(),
+                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
+                            )
                     ),
                     new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
