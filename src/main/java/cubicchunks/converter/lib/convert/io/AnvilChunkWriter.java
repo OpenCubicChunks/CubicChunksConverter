@@ -41,6 +41,7 @@ import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -72,7 +73,8 @@ public class AnvilChunkWriter implements ChunkDataWriter<MultilayerAnvilChunkDat
                                         .setKeyProvider(keyProvider)
                                         .setRegionKey(regionKey)
                                         .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-                                        .build()
+                                        .build(),
+                                (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
                         )
                 ));
             }));

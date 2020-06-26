@@ -38,6 +38,7 @@ import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
@@ -71,7 +72,8 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
                         ),
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
-                                        (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
+                                        (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
+                                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                                 )
                         ));
                 SaveSection3D section3d = new SaveSection3D(
@@ -80,7 +82,8 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
                         ),
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
-                                        (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey)
+                                        (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
+                                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                                 )
                         ));
 

@@ -39,6 +39,7 @@ import cubicchunks.regionlib.lib.provider.SharedCachedRegionProvider;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +64,8 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
                                 .setKeyProvider(keyProvider)
                                 .setRegionKey(regionKey)
                                 .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-                                .build()
+                                .build(),
+                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
                 )
         ));
     }
@@ -104,7 +106,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
             }
             MinecraftSaveSection vanillaSave = entry.getValue();
             Dimension d = entry.getKey();
-            vanillaSave.forAllKeys(interruptibleConsumer(mcPos -> consumer.accept(new AnvilChunkData(d, mcPos, vanillaSave.load(mcPos).orElse(null)))));
+            vanillaSave.forAllKeys(interruptibleConsumer(mcPos -> consumer.accept(new AnvilChunkData(d, mcPos, vanillaSave.load(mcPos, true).orElse(null)))));
         }
     }
 

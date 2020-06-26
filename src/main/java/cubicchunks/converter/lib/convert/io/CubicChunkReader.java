@@ -123,14 +123,14 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                 try {
                     EntryLocation2D pos2d = chunksEntry.getKey();
                     IntArrayList yCoords = chunksEntry.getValue();
-                    ByteBuffer column = save.load(pos2d).orElse(null);
+                    ByteBuffer column = save.load(pos2d, true).orElse(null);
                     Map<Integer, ByteBuffer> cubes = new HashMap<>();
                     for (IntCursor yCursor : yCoords) {
                         if (Thread.interrupted()) {
                             return;
                         }
                         int y = yCursor.value;
-                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ())).orElseThrow(
+                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
                                 () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
                         cubes.put(y, cube);
                     }
@@ -163,7 +163,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     ),
                     new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
-                                    (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
+                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
             SaveSection3D section3d = new SaveSection3D(
@@ -172,7 +173,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     ),
                     new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
-                                    (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey)
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
+                                    (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
 
