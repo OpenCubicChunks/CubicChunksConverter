@@ -126,8 +126,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     });
                     ArrayBlockingQueue<Runnable> convertQueueImpl = new ArrayBlockingQueue<>(256);
 
-                    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-                            Runtime.getRuntime().availableProcessors(), 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
+                    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,
+                            1, 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
                     threadPoolExecutor.setRejectedExecutionHandler(handler);
                     p.forAllRegions(reg -> {
                         threadPoolExecutor.submit(()-> {

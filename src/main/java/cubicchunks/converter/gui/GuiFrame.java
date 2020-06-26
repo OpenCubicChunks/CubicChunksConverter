@@ -24,38 +24,20 @@
 package cubicchunks.converter.gui;
 
 import cubicchunks.converter.lib.Registry;
-import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.converter.lib.convert.WorldConverter;
+import cubicchunks.converter.lib.util.Utils;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
-
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
-import javax.swing.WindowConstants;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
 public class GuiFrame extends JFrame {
 
@@ -71,6 +53,7 @@ public class GuiFrame extends JFrame {
 
     private String inFormat = "Anvil";
     private String outFormat = "CubicChunks";
+    private String converterName = "Default";
 
     private JComboBox<ConverterDesc> selectConverter;
 
@@ -147,13 +130,15 @@ public class GuiFrame extends JFrame {
         {
             formatSelect.add(new JLabel("Converter: "));
             selectConverter = new JComboBox<>();
-            for (Registry.ClassPair<?, ?> converter : Registry.getConverters()) {
+            for (Registry.ClassTriple<?, ?, ?> converter : Registry.getConverters()) {
                 ConverterDesc desc = new ConverterDesc(
-                    Registry.getReader(converter.getIn()),
-                    Registry.getWriter(converter.getOut())
+                        Registry.getReader(converter.getIn()),
+                        Registry.getWriter(converter.getOut()),
+                        Registry.getConverter(converter.getConverter())
                 );
                 selectConverter.addItem(desc);
             }
+
             selectConverter.setSelectedIndex(0);
             formatSelect.add(selectConverter);
         }
@@ -327,10 +312,12 @@ public class GuiFrame extends JFrame {
         ConverterDesc desc = (ConverterDesc) selectConverter.getSelectedItem();
         this.inFormat = desc.getIn();
         this.outFormat = desc.getOut();
+        this.converterName = desc.getConverterName();
+
         WorldConverter<?, ?> converter = new WorldConverter<>(
-            Registry.getLevelConverter(inFormat, outFormat).apply(srcPath, dstPath),
+            Registry.getLevelConverter(inFormat, outFormat, converterName).apply(srcPath, dstPath),
             Registry.getReader(inFormat).apply(srcPath),
-            Registry.getConverter(inFormat, outFormat).get(),
+            Registry.getConverter(inFormat, outFormat, converterName).get(),
             Registry.getWriter(outFormat).apply(dstPath)
         );
         ConverterWorker w = new ConverterWorker(converter, progressBar, convertFill, ioFill, () -> {
@@ -347,10 +334,12 @@ public class GuiFrame extends JFrame {
     private static class ConverterDesc {
         private final String in;
         private final String out;
+        private final String converterName;
 
-        private ConverterDesc(String in, String out) {
+        public ConverterDesc(String in, String out, String converterName) {
             this.in = in;
             this.out = out;
+            this.converterName = converterName;
         }
 
         public String getIn() {
@@ -361,24 +350,28 @@ public class GuiFrame extends JFrame {
             return out;
         }
 
-        @Override public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
+        public String getConverterName() {
+            return converterName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
             ConverterDesc that = (ConverterDesc) o;
             return in.equals(that.in) &&
-                out.equals(that.out);
+                    out.equals(that.out) &&
+                    converterName.equals(that.converterName);
         }
 
-        @Override public int hashCode() {
-            return Objects.hash(in, out);
+        @Override
+        public int hashCode() {
+            return Objects.hash(in, out, converterName);
         }
 
-        @Override public String toString() {
-            return in + " -> " + out;
+        @Override
+        public String toString() {
+            return in + " -> " + out + " (" + converterName + ")";
         }
     }
 }

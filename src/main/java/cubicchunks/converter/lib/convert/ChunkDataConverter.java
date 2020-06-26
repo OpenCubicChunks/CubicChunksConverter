@@ -43,4 +43,7 @@ public interface ChunkDataConverter<IN, OUT> {
     default ConverterConfig getConfig() {
         return null;
     }
+
+    default String getName() { return null; }
+    default void setName(String name) {  }
 }
