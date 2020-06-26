@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class WorldConverter<IN, OUT> {
 
     private static final int THREADS = Runtime.getRuntime().availableProcessors()+1;
-    private static final int CONVERT_QUEUE_SIZE = 64 * THREADS;
-    private static final int IO_QUEUE_SIZE = 32 * THREADS;
+    private static final int CONVERT_QUEUE_SIZE = 64 * THREADS * 2;
+    private static final int IO_QUEUE_SIZE = 32 * THREADS * 10;
 
     private final LevelInfoConverter<IN, OUT> levelConverter;
     private final ChunkDataReader<IN> reader;
@@ -188,9 +188,6 @@ public class WorldConverter<IN, OUT> {
                     int v = chunkCount.getAndIncrement();
                     if ((v & 255) == 0) {
                         progress.update(null);
-                    }
-                    if ((v & (16 * 1024 - 1)) == 0) {
-                        System.out.println("Chunk counting: " + v);
                     }
                 });
             } catch (IOException e) {
