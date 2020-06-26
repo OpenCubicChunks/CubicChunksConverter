@@ -56,7 +56,7 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
                 file.position(0);
                 file.read(fileBuffer);
 
-                fileBuffer.reset();
+                fileBuffer.clear();
 
                 for (int i = 0; i < keyCount; i++) {
                     int loc = fileBuffer.getInt();
