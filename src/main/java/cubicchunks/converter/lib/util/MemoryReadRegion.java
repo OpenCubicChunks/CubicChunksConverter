@@ -52,27 +52,23 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
 
     private final IKeyIdToSectorMap<?, ?, K> sectorMap;
     private final int sectorSize;
+    private SeekableByteChannel file;
     private final RegionKey regionKey;
     private final IKeyProvider<K> keyProvider;
     private final int keyCount;
-    private final ByteBuffer fileBuffer;
+    private ByteBuffer fileBuffer;
 
     private MemoryReadRegion(SeekableByteChannel file,
             IntPackedSectorMap<K> sectorMap,
             RegionKey regionKey,
             IKeyProvider<K> keyProvider,
             int sectorSize) throws IOException {
+        this.file = file;
         this.regionKey = regionKey;
         this.keyProvider = keyProvider;
         this.keyCount = keyProvider.getKeyCount(regionKey);
         this.sectorSize = sectorSize;
         this.sectorMap = sectorMap;
-
-        this.fileBuffer = ByteBuffer.allocate((int) file.size());
-
-        file.position(0);
-        file.read(fileBuffer);
-        file.close();
     }
 
     @Override public synchronized void writeValue(K key, ByteBuffer value) throws IOException {
@@ -84,6 +80,14 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
     }
 
     @Override public synchronized Optional<ByteBuffer> readValue(K key) throws IOException {
+        if (fileBuffer == null) {
+            this.fileBuffer = ByteBuffer.allocate((int) file.size());
+
+            file.position(0);
+            file.read(fileBuffer);
+            file.close();
+            file = null;
+        }
         // a hack because Optional can't throw checked exceptions
         try {
             return sectorMap.trySpecialValue(key)
@@ -138,7 +142,10 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
         return ceilDiv(bytes, sectorSize);
     }
 
-    @Override public void close() {
+    @Override public void close() throws IOException {
+        if (file != null) {
+            file.close();
+        }
     }
 
     private static int ceilDiv(int x, int y) {
