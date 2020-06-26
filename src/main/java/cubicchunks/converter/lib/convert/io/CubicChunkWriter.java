@@ -26,14 +26,20 @@ package cubicchunks.converter.lib.convert.io;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.ChunkDataWriter;
+import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
+import cubicchunks.regionlib.impl.save.SaveSection2D;
+import cubicchunks.regionlib.impl.save.SaveSection3D;
+import cubicchunks.regionlib.lib.ExtRegion;
+import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -49,7 +55,28 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
     @Override public void accept(CubicChunksColumnData data) throws IOException {
         SaveCubeColumns save = saves.computeIfAbsent(data.getDimension(), dim -> {
             try {
-                return SaveCubeColumns.create(dstPath.resolve(dim.getDirectory()));
+                Path path = dstPath.resolve(dim.getDirectory());
+
+                cubicchunks.regionlib.util.Utils.createDirectories(path);
+
+                Path part2d = path.resolve("region2d");
+                cubicchunks.regionlib.util.Utils.createDirectories(part2d);
+
+                Path part3d = path.resolve("region3d");
+                cubicchunks.regionlib.util.Utils.createDirectories(part3d);
+
+                SaveSection2D section2d = new SaveSection2D(
+                        new RWLockingCachedRegionProvider<>(
+                                SimpleRegionProvider.createDefault(new EntryLocation2D.Provider(), part2d, 512)
+                        ),
+                        new RWLockingCachedRegionProvider<>(
+                                new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
+                                        (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
+                                )
+                        ));
+                SaveSection3D section3d = SaveSection3D.createAt(part3d);
+
+                return new SaveCubeColumns(section2d, section3d);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

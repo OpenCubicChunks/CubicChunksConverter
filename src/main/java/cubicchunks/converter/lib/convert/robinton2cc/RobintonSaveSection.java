@@ -23,6 +23,7 @@
  */
 package cubicchunks.converter.lib.convert.robinton2cc;
 
+import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.api.storage.SaveSection;
 import cubicchunks.regionlib.lib.Region;
@@ -48,7 +49,7 @@ public class RobintonSaveSection extends SaveSection<RobintonSaveSection, Robint
     }
 
     public static RobintonSaveSection createAt(Path directory) {
-        return new RobintonSaveSection(new SharedCachedRegionProvider<>(
+        return new RobintonSaveSection(new RWLockingCachedRegionProvider<>(
                 new SimpleRegionProvider<>(new RobintonEntryLocation3D.Provider(), directory, (keyProv, r) ->
                         new Region.Builder<RobintonEntryLocation3D>()
                                 .addSpecialSectorMapEntry(EMPTY_MARKER, 0xFFFFFFFF, loc -> EMPTY_BUFFER, RobintonSaveSection::throwingErrorHandler)

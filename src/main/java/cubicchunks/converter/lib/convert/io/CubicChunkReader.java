@@ -29,15 +29,23 @@ import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
+import cubicchunks.regionlib.impl.save.SaveSection2D;
+import cubicchunks.regionlib.impl.save.SaveSection3D;
+import cubicchunks.regionlib.lib.ExtRegion;
+import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
+import cubicchunks.regionlib.util.Utils;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -107,26 +115,30 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             }
             Dimension dim = dimEntry.getKey();
             SaveCubeColumns save = saves.get(dim);
-            for (Map.Entry<EntryLocation2D, IntArrayList> chunksEntry : dimEntry.getValue().entrySet()) {
+            dimEntry.getValue().entrySet().parallelStream().forEach(chunksEntry -> {
                 if (Thread.interrupted()) {
                     return;
                 }
-                EntryLocation2D pos2d = chunksEntry.getKey();
-                IntArrayList yCoords = chunksEntry.getValue();
-                ByteBuffer column = save.load(pos2d).orElse(null);
-                Map<Integer, ByteBuffer> cubes = new ConcurrentHashMap<>();
-                for (IntCursor yCursor : yCoords) {
-                    if (Thread.interrupted()) {
-                        return;
+                try {
+                    EntryLocation2D pos2d = chunksEntry.getKey();
+                    IntArrayList yCoords = chunksEntry.getValue();
+                    ByteBuffer column = save.load(pos2d).orElse(null);
+                    Map<Integer, ByteBuffer> cubes = new ConcurrentHashMap<>();
+                    for (IntCursor yCursor : yCoords) {
+                        if (Thread.interrupted()) {
+                            return;
+                        }
+                        int y = yCursor.value;
+                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ())).orElseThrow(
+                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                        cubes.put(y, cube);
                     }
-                    int y = yCursor.value;
-                    ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ())).orElseThrow(
-                        () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
-                    cubes.put(y, cube);
+                    CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
+                    consumer.accept(data);
+                } catch (IOException ex) {
+                    throw new UncheckedIOException(ex);
                 }
-                CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
-                consumer.accept(data);
-            }
+            });
         }
     }
 
@@ -136,7 +148,26 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private static SaveCubeColumns createSave(Path path) {
         try {
-            return SaveCubeColumns.create(path);
+            Utils.createDirectories(path);
+
+            Path part2d = path.resolve("region2d");
+            Utils.createDirectories(part2d);
+
+            Path part3d = path.resolve("region3d");
+            Utils.createDirectories(part3d);
+
+            SaveSection2D section2d = new SaveSection2D(
+                    new RWLockingCachedRegionProvider<>(
+                            SimpleRegionProvider.createDefault(new EntryLocation2D.Provider(), part2d, 512)
+                    ),
+                    new RWLockingCachedRegionProvider<>(
+                            new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
+                            )
+                    ));
+            SaveSection3D section3d = SaveSection3D.createAt(part3d);
+
+            return new SaveCubeColumns(section2d, section3d);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
