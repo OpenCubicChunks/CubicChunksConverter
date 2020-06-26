@@ -59,7 +59,12 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
                 fileBuffer.clear();
 
                 for (int i = 0; i < keyCount; i++) {
+                    fileBuffer.limit(i * Integer.BYTES + Integer.BYTES);
+                    fileBuffer.position(i * Integer.BYTES);
                     int loc = fileBuffer.getInt();
+                    if (loc == 0) {
+                        continue;
+                    }
                     int sizeBytes = unpackSize(loc) * sectorSize;
                     ByteBuffer data = ByteBuffer.allocate(sizeBytes);
                     int offsetBytes = unpackOffset(loc) * sectorSize;
