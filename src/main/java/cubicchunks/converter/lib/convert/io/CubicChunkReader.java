@@ -30,7 +30,7 @@ import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.MemoryReadRegion;
-import cubicchunks.converter.lib.util.ReadNoLockCachedRegionProvider;
+import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.api.region.IRegionProvider;
@@ -230,7 +230,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             IRegionProvider<EntryLocation2D> prov2d1, prov2d2;
             IRegionProvider<EntryLocation3D> prov3d1, prov3d2;
             SaveSection2D section2d = new SaveSection2D(
-                    prov2d1 = new ReadNoLockCachedRegionProvider<>(
+                    prov2d1 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation2D>()
                                             .setDirectory(part2d)
@@ -241,14 +241,14 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                     (file, key) -> Files.exists(file)
                             )
                     ),
-                    prov2d2 = new ReadNoLockCachedRegionProvider<>(
+                    prov2d2 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
                                     (file, key) -> Files.exists(file.resolveSibling(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
             SaveSection3D section3d = new SaveSection3D(
-                    prov3d1 = new ReadNoLockCachedRegionProvider<>(
+                    prov3d1 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation3D>()
                                             .setDirectory(part3d)
@@ -259,7 +259,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                     (file, key) -> Files.exists(file)
                             )
                     ),
-                    prov3d2 = new ReadNoLockCachedRegionProvider<>(
+                    prov3d2 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
                                     (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
