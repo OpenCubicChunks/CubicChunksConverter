@@ -46,6 +46,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -123,7 +124,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     EntryLocation2D pos2d = chunksEntry.getKey();
                     IntArrayList yCoords = chunksEntry.getValue();
                     ByteBuffer column = save.load(pos2d).orElse(null);
-                    Map<Integer, ByteBuffer> cubes = new ConcurrentHashMap<>();
+                    Map<Integer, ByteBuffer> cubes = new HashMap<>();
                     for (IntCursor yCursor : yCoords) {
                         if (Thread.interrupted()) {
                             return;
