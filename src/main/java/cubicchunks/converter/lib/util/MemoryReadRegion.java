@@ -104,6 +104,7 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
                 int sectorOffset = loc.getOffset();
                 int sectorCount = loc.getSize();
 
+                fileBuffer.limit(sectorOffset * sectorSize + Integer.BYTES);
                 fileBuffer.position(sectorOffset * sectorSize);
                 int dataLength = fileBuffer.getInt();
                 if (dataLength > sectorCount * sectorSize) {
