@@ -89,7 +89,7 @@ public class WorldConverter<IN, OUT> {
     }
 
     public void convert(IProgressListener progress) throws IOException {
-        startCounting();
+        startCounting(progress);
 
         System.out.println("Starting conversion");
 
@@ -181,11 +181,14 @@ public class WorldConverter<IN, OUT> {
         return IO_QUEUE_SIZE;
     }
 
-    private void startCounting() {
+    private void startCounting(IProgressListener progress) {
         countingThread = new Thread(() -> {
             try {
                 reader.countInputChunks(() -> {
                     int v = chunkCount.getAndIncrement();
+                    if ((v & 255) == 0) {
+                        progress.update(null);
+                    }
                     if ((v & (16 * 1024 - 1)) == 0) {
                         System.out.println("Chunk counting: " + v);
                     }
