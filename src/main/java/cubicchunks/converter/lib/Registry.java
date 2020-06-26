@@ -32,6 +32,8 @@ import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCDataConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCLevelInfoConverter;
+import cubicchunks.converter.lib.convert.cc2ccstacked.CC2CCStackedDataConverter;
+import cubicchunks.converter.lib.convert.cc2ccstacked.CC2CCStackedLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
@@ -76,6 +78,7 @@ public class Registry {
         registerConverter(Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class);
         registerConverter(CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class);
         registerConverter(Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class);
+        registerConverter(CC2CCStackedDataConverter::new, CC2CCStackedLevelInfoConverter::new, CubicChunksColumnData.class, CubicChunksColumnData.class);
 
         registerNoops();
     }
@@ -110,7 +113,7 @@ public class Registry {
     }
 
     public static <IN, OUT> void registerConverter(Supplier<ChunkDataConverter<IN, OUT>> conv,
-        BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out) {
+                                                   BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out) {
 
         convertersByClass.put(new ClassPair<>(in, out), conv);
         levelConvertersByClass.put(new ClassPair<>(in, out), levelConv);
@@ -151,8 +154,8 @@ public class Registry {
     @SuppressWarnings("unchecked")
     public static <IN, OUT> Supplier<ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName) {
         ClassPair<IN, OUT> pair = new ClassPair<>(
-            getReaderClass(inputName),
-            getWriterClass(outputName)
+                getReaderClass(inputName),
+                getWriterClass(outputName)
         );
         return (Supplier<ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
     }
@@ -165,8 +168,8 @@ public class Registry {
     @SuppressWarnings("unchecked")
     public static <IN, OUT> BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> getLevelConverter(String inputName, String outputName) {
         ClassPair<IN, OUT> pair = new ClassPair<>(
-            getReaderClass(inputName),
-            getWriterClass(outputName)
+                getReaderClass(inputName),
+                getWriterClass(outputName)
         );
         return (BiFunction<Path, Path, LevelInfoConverter<IN, OUT>>) levelConvertersByClass.get(pair);
     }
@@ -212,7 +215,7 @@ public class Registry {
             }
             ClassPair<?, ?> classPair = (ClassPair<?, ?>) o;
             return in.equals(classPair.in) &&
-                out.equals(classPair.out);
+                    out.equals(classPair.out);
         }
 
         @Override public int hashCode() {
@@ -221,9 +224,9 @@ public class Registry {
 
         @Override public String toString() {
             return "ClassPair{" +
-                "in=" + in +
-                ", out=" + out +
-                '}';
+                    "in=" + in +
+                    ", out=" + out +
+                    '}';
         }
     }
 }

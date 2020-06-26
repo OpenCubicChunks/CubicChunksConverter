@@ -45,10 +45,10 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
@@ -79,11 +79,11 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
     }
 
     private Map<Dimension, Map<EntryLocation2D, IntArrayList>> doCountChunks(Runnable increment) throws IOException, UncheckedInterruptedException {
-        Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = new ConcurrentHashMap<>();
+        Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = new HashMap<>();
         for (Map.Entry<Dimension, SaveCubeColumns> entry : saves.entrySet()) {
             SaveCubeColumns save = entry.getValue();
             Dimension dim = entry.getKey();
-            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new ConcurrentHashMap<>());
+            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new HashMap<>());
             save.getSaveSection3D().forAllKeys(interruptibleConsumer(loc -> {
 
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
@@ -123,7 +123,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     EntryLocation2D pos2d = chunksEntry.getKey();
                     IntArrayList yCoords = chunksEntry.getValue();
                     ByteBuffer column = save.load(pos2d).orElse(null);
-                    Map<Integer, ByteBuffer> cubes = new ConcurrentHashMap<>();
+                    Map<Integer, ByteBuffer> cubes = new HashMap<>();
                     for (IntCursor yCursor : yCoords) {
                         if (Thread.interrupted()) {
                             return;
