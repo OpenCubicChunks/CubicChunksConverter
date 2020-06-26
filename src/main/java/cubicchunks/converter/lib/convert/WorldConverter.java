@@ -178,7 +178,12 @@ public class WorldConverter<IN, OUT> {
     private void startCounting() {
         new Thread(() -> {
             try {
-                reader.countInputChunks(chunkCount::getAndIncrement);
+                reader.countInputChunks(() -> {
+                    int v = chunkCount.getAndIncrement();
+                    if ((v & (16*1024 - 1)) == 0) {
+                        System.out.println("Chunk counting: " + v);
+                    }
+                });
             } catch (IOException e) {
                 throw new RuntimeException(e);
             } catch (InterruptedException e) {

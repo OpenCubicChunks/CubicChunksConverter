@@ -31,6 +31,8 @@ import cubicchunks.converter.lib.util.MemoryReadRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.converter.lib.util.Utils;
+import cubicchunks.regionlib.api.region.IRegion;
+import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
@@ -39,18 +41,33 @@ import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
 import cubicchunks.regionlib.lib.Region;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
+import cubicchunks.regionlib.util.CheckedConsumer;
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.WeakHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
@@ -59,6 +76,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private final CompletableFuture<ChunkList> chunkList = new CompletableFuture<>();
     private final Thread loadThread;
+    private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation2D>>> providers2d = new WeakHashMap<>();
+    private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation3D>>> providers3d = new WeakHashMap<>();
 
     public CubicChunkReader(Path srcDir) {
         super(srcDir, (dim, path) -> Files.exists(getDimensionPath(dim, path)) ? createSave(getDimensionPath(dim, path)) : null);
@@ -86,15 +105,68 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
         for (Map.Entry<Dimension, SaveCubeColumns> entry : saves.entrySet()) {
             SaveCubeColumns save = entry.getValue();
             Dimension dim = entry.getKey();
-            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new HashMap<>());
-            save.getSaveSection3D().forAllKeys(interruptibleConsumer(loc -> {
+            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new ConcurrentHashMap<>());
+
+            List<IRegionProvider<EntryLocation3D>> regionProviders = providers3d.get(save);
+
+            CheckedConsumer<EntryLocation3D, IOException> cons = interruptibleConsumer(loc -> {
 
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
                 chunks.computeIfAbsent(loc2d, l -> {
                     increment.run();
                     return new IntArrayList();
                 }).add(loc.getEntryY());
-            }));
+            });
+
+            for (int i = 0; i < regionProviders.size(); i++) {
+                IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
+                if (i == 0) {
+                    RejectedExecutionHandler handler = ((r, executor) -> {
+                        try {
+                            if (!executor.isShutdown()) {
+                                executor.getQueue().put(r);
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RejectedExecutionException("Executor was interrupted while the task was waiting to put on work queue", e);
+                        }
+                    });
+                    ArrayBlockingQueue<Runnable> convertQueueImpl = new ArrayBlockingQueue<>(256);
+
+                    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+                            Runtime.getRuntime().availableProcessors(), 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
+                    threadPoolExecutor.setRejectedExecutionHandler(handler);
+                    p.forAllRegions(reg -> {
+                        threadPoolExecutor.submit(()-> {
+                            try {
+                                reg.forEachKey(cons);
+                                reg.close();
+                            } catch (IOException e) {
+                                throw new UncheckedIOException(e);
+                            }
+                        });
+                    });
+                    threadPoolExecutor.shutdown();
+                } else {
+                    int max = i;
+                    p.forAllRegions(reg -> {
+                        reg.forEachKey(key -> {
+                            // cancel if any of the providers before contain this key
+                            for (int j = 0; j < max; j++) {
+                                EntryLocation3D superKey = regionProviders.get(j)
+                                        .getExistingRegion(key)
+                                        .flatMap(r -> r.hasValue(key) ? Optional.of(key) : Optional.empty())
+                                        .orElse(null);
+                                if (superKey != null) {
+                                    return;
+                                }
+                            }
+                            cons.accept(key);
+                        });
+                        reg.close();
+                    });
+                }
+            }
         }
         return dimensions;
     }
@@ -162,8 +234,10 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             EntryLocation2D.Provider keyProv2d = new EntryLocation2D.Provider();
             EntryLocation3D.Provider keyProv3d = new EntryLocation3D.Provider();
 
+            IRegionProvider<EntryLocation2D> prov2d1, prov2d2;
+            IRegionProvider<EntryLocation3D> prov3d1, prov3d2;
             SaveSection2D section2d = new SaveSection2D(
-                    new RWLockingCachedRegionProvider<>(
+                    prov2d1 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation2D>()
                                             .setDirectory(part2d)
@@ -174,14 +248,14 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                     (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
                             )
                     ),
-                    new RWLockingCachedRegionProvider<>(
+                    prov2d2 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
                                     (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
             SaveSection3D section3d = new SaveSection3D(
-                    new RWLockingCachedRegionProvider<>(
+                    prov3d1 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
                                     new MemoryReadRegion.Builder<EntryLocation3D>()
                                             .setDirectory(part3d)
@@ -192,14 +266,17 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                     (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
                             )
                     ),
-                    new RWLockingCachedRegionProvider<>(
+                    prov3d2 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
                                     (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
 
-            return new SaveCubeColumns(section2d, section3d);
+            SaveCubeColumns saveCubeColumns = new SaveCubeColumns(section2d, section3d);
+            providers2d.put(saveCubeColumns, Arrays.asList(prov2d1, prov2d2));
+            providers3d.put(saveCubeColumns, Arrays.asList(prov3d1, prov3d2));
+            return saveCubeColumns;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
