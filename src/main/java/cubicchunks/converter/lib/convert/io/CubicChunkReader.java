@@ -23,14 +23,13 @@
  */
 package cubicchunks.converter.lib.convert.io;
 
-import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
-
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
+import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
@@ -38,7 +37,6 @@ import cubicchunks.regionlib.impl.save.SaveSection2D;
 import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
-import cubicchunks.regionlib.util.Utils;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -52,6 +50,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+
+import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
 
 public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData, SaveCubeColumns> {
 
@@ -166,7 +166,15 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                                     (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
                             )
                     ));
-            SaveSection3D section3d = SaveSection3D.createAt(part3d);
+            SaveSection3D section3d = new SaveSection3D(
+                    new RWLockingCachedRegionProvider<>(
+                            SimpleRegionProvider.createDefault(new EntryLocation3D.Provider(), part3d, 512)
+                    ),
+                    new RWLockingCachedRegionProvider<>(
+                            new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey)
+                            )
+                    ));
 
             return new SaveCubeColumns(section2d, section3d);
         } catch (IOException e) {

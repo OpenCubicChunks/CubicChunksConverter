@@ -74,7 +74,15 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
                                         (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
                                 )
                         ));
-                SaveSection3D section3d = SaveSection3D.createAt(part3d);
+                SaveSection3D section3d = new SaveSection3D(
+                        new RWLockingCachedRegionProvider<>(
+                                SimpleRegionProvider.createDefault(new EntryLocation3D.Provider(), part3d, 512)
+                        ),
+                        new RWLockingCachedRegionProvider<>(
+                                new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
+                                        (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey)
+                                )
+                        ));
 
                 return new SaveCubeColumns(section2d, section3d);
             } catch (IOException e) {
