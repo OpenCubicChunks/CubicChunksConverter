@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorldConverter<IN, OUT> {
 
-    private static final int THREADS = Runtime.getRuntime().availableProcessors();
+    private static final int THREADS = Runtime.getRuntime().availableProcessors()+1;
     private static final int CONVERT_QUEUE_SIZE = 64 * THREADS;
     private static final int IO_QUEUE_SIZE = 32 * THREADS;
 
@@ -46,8 +46,8 @@ public class WorldConverter<IN, OUT> {
     private final ArrayBlockingQueue<Runnable> convertQueueImpl;
     private final ArrayBlockingQueue<Runnable> ioQueueImpl;
 
-    private final ThreadPoolExecutor convertQueue;
-    private final ThreadPoolExecutor ioQueue;
+    private final ExecutorService convertQueue;
+    private final ExecutorService ioQueue;
 
     private volatile boolean discardConverted = false;
     private volatile boolean errored = false;
@@ -79,12 +79,12 @@ public class WorldConverter<IN, OUT> {
         chunkCount = new AtomicInteger(0);
 
         convertQueueImpl = new ArrayBlockingQueue<>(CONVERT_QUEUE_SIZE);
-        convertQueue = new ThreadPoolExecutor(THREADS, THREADS, 0L, TimeUnit.MILLISECONDS, convertQueueImpl);
-        convertQueue.setRejectedExecutionHandler(handler);
+        convertQueue = new ThreadPoolExecutor(THREADS, THREADS, 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
+        ((ThreadPoolExecutor)convertQueue).setRejectedExecutionHandler(handler);
 
         ioQueueImpl = new ArrayBlockingQueue<>(IO_QUEUE_SIZE);
-        ioQueue = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ioQueueImpl);
-        ioQueue.setRejectedExecutionHandler(handler);
+        ioQueue = new ThreadPoolExecutor(1, 1, 1000L, TimeUnit.MILLISECONDS, ioQueueImpl);
+        ((ThreadPoolExecutor)ioQueue).setRejectedExecutionHandler(handler);
     }
 
     public void convert(IProgressListener progress) throws IOException {
@@ -213,7 +213,7 @@ public class WorldConverter<IN, OUT> {
         private final ChunkDataWriter<OUT> writer;
         private final IProgressListener progress;
         private WorldConverter<IN, OUT> worldConv;
-        private final ThreadPoolExecutor ioExecutor;
+        private final ExecutorService ioExecutor;
         private final IN toConvert;
 
         ChunkConvertTask(
@@ -221,7 +221,7 @@ public class WorldConverter<IN, OUT> {
             ChunkDataWriter<OUT> writer,
             IProgressListener progress,
             WorldConverter<IN, OUT> worldConv,
-            ThreadPoolExecutor ioExecutor,
+            ExecutorService ioExecutor,
             IN toConvert) {
 
             this.converter = converter;

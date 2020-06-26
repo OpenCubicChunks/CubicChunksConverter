@@ -45,8 +45,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> {
 
-    private Path dstPath;
-    private Map<Dimension, SaveCubeColumns> saves = new ConcurrentHashMap<>();
+    private final Path dstPath;
+    private final Map<Dimension, SaveCubeColumns> saves = new ConcurrentHashMap<>();
 
     public CubicChunkWriter(Path dstPath) {
         this.dstPath = dstPath;
@@ -57,13 +57,13 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
             try {
                 Path path = dstPath.resolve(dim.getDirectory());
 
-                cubicchunks.regionlib.util.Utils.createDirectories(path);
+                Utils.createDirectories(path);
 
                 Path part2d = path.resolve("region2d");
-                cubicchunks.regionlib.util.Utils.createDirectories(part2d);
+                Utils.createDirectories(part2d);
 
                 Path part3d = path.resolve("region3d");
-                cubicchunks.regionlib.util.Utils.createDirectories(part3d);
+                Utils.createDirectories(part3d);
 
                 SaveSection2D section2d = new SaveSection2D(
                         new RWLockingCachedRegionProvider<>(
