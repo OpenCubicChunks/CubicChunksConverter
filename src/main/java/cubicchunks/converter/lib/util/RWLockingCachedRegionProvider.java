@@ -48,7 +48,7 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Map<RegionKey, IRegion<?>> regionLocationToRegion = new ConcurrentHashMap<>(512);
-    private final int maxCacheSize = 256;
+    private final int maxCacheSize = 64;
 
     private boolean closed;
 

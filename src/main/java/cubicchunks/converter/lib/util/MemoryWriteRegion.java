@@ -18,8 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Optional;
 
 public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
@@ -33,39 +32,53 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
 
     private final SeekableByteChannel file;
     private final int sectorSize;
-    private final RegionKey regionKey;
-    private final IKeyProvider<K> keyProvider;
     private final int keyCount;
-    private final List<WriteEntry> writeEntries = new ArrayList<>();
-    private int currentWriteSector;
+    private WriteEntry[] writeEntries;
 
     private MemoryWriteRegion(SeekableByteChannel file,
             RegionKey regionKey,
             IKeyProvider<K> keyProvider,
             int sectorSize) throws IOException {
-        this.regionKey = regionKey;
-        this.keyProvider = keyProvider;
         this.keyCount = keyProvider.getKeyCount(regionKey);
         this.file = file;
         this.sectorSize = sectorSize;
-        this.currentWriteSector = ceilDiv(keyCount * Integer.BYTES, sectorSize);
     }
 
     @Override public synchronized void writeValue(K key, ByteBuffer value) throws IOException {
         if (value == null) {
             return;
         }
+        if (writeEntries == null) {
+            writeEntries = new WriteEntry[keyCount];
+            if (file.size() >= keyCount * Integer.BYTES) {
+                ByteBuffer fileBuffer = ByteBuffer.allocate((int) file.size());
+
+                file.position(0);
+                file.read(fileBuffer);
+
+                fileBuffer.reset();
+
+                for (int i = 0; i < keyCount; i++) {
+                    int loc = fileBuffer.getInt();
+                    int sizeBytes = unpackSize(loc) * sectorSize;
+                    ByteBuffer data = ByteBuffer.allocate(sizeBytes);
+                    int offsetBytes = unpackOffset(loc) * sectorSize;
+                    fileBuffer.limit(offsetBytes + sizeBytes);
+                    fileBuffer.position(offsetBytes);
+                    data.put(fileBuffer);
+
+                    writeEntries[i] = new WriteEntry(data);
+                }
+            }
+        }
         int size = value.remaining();
         int sizeWithSizeInfo = size + Integer.BYTES;
         int numSectors = getSectorNumber(sizeWithSizeInfo);
-        // this may throw UnsupportedDataException if data is too big
-        int location = packed(new RegionEntryLocation(currentWriteSector, numSectors));
-        currentWriteSector += numSectors;
 
         ByteBuffer data = ByteBuffer.allocate(numSectors * sectorSize);
-        data.putInt(location);
+        data.putInt(size);
         data.put(value);
-        writeEntries.add(new WriteEntry(key.getId(), location, data));
+        writeEntries[key.getId()] = new WriteEntry(data);
     }
 
     @Override public void writeSpecial(K key, Object marker) throws IOException {
@@ -94,15 +107,25 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
 
     @Override public void close() throws IOException {
         ByteBuffer header = ByteBuffer.allocate(keyCount * Integer.BYTES);
+        int writePos = ceilDiv(keyCount * Integer.BYTES, sectorSize);
         for (WriteEntry writeEntry : writeEntries) {
-            header.position(writeEntry.at * Integer.BYTES);
-            header.putInt(writeEntry.headerEntry);
+            if (writeEntry == null) {
+                header.putInt(0);
+                continue;
+            }
+            int sectorCount = ceilDiv(writeEntry.buffer.remaining(), sectorSize);
+            header.putInt(packed(new RegionEntryLocation(writePos, sectorCount)));
+            writePos += sectorCount;
         }
         file.position(0);
         file.write(header);
         for (WriteEntry writeEntry : writeEntries) {
+            if (writeEntry == null) {
+                continue;
+            }
             file.write(writeEntry.buffer);
         }
+        Arrays.fill(writeEntries, null);
         this.file.close();
     }
 
@@ -134,13 +157,9 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
 
     private static class WriteEntry {
 
-        final int at;
-        final int headerEntry;
         final ByteBuffer buffer;
 
-        private WriteEntry(int at, int headerEntry, ByteBuffer buffer) {
-            this.at = at;
-            this.headerEntry = headerEntry;
+        private WriteEntry(ByteBuffer buffer) {
             this.buffer = buffer;
         }
     }
