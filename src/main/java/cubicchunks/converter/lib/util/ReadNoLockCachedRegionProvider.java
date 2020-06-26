@@ -44,8 +44,8 @@ public class ReadNoLockCachedRegionProvider<K extends IKey<K>> implements IRegio
 
     private final IRegionProvider<K> sourceProvider;
 
-    private final Map<RegionKey, IRegion<?>> regionLocationToRegion = new ConcurrentHashMap<>(512);
-    private final int maxCacheSize = 256;
+    private volatile Map<RegionKey, IRegion<?>> regionLocationToRegion = new ConcurrentHashMap<>(512);
+    private final int maxCacheSize = 64;
 
     private boolean closed;
 
@@ -126,6 +126,9 @@ public class ReadNoLockCachedRegionProvider<K extends IKey<K>> implements IRegio
         if (region == null) {
             region = sourceProvider.getExistingRegion(location).orElse(null);
             if (region != null) {
+                if (regionLocationToRegion.size() > maxCacheSize) {
+                    clearRegions();
+                }
                 regionLocationToRegion.put(regionKey, region);
             }
             if (region == null && canCreate) {
@@ -147,6 +150,9 @@ public class ReadNoLockCachedRegionProvider<K extends IKey<K>> implements IRegio
         if (region == null) {
             region = sourceProvider.getExistingRegion(location).orElse(null);
             if (region != null) {
+                if (regionLocationToRegion.size() > maxCacheSize) {
+                    clearRegions();
+                }
                 regionLocationToRegion.put(regionKey, region);
             }
             if (region == null && canCreate) {
@@ -161,6 +167,9 @@ public class ReadNoLockCachedRegionProvider<K extends IKey<K>> implements IRegio
     }
 
     public synchronized void clearRegions() throws IOException {
+        Map<RegionKey, IRegion<?>> regionLocationToRegion = this.regionLocationToRegion;
+        this.regionLocationToRegion = new ConcurrentHashMap<>();
+
         Iterator<IRegion<?>> it = regionLocationToRegion.values().iterator();
         while (it.hasNext()) {
             it.next().close();

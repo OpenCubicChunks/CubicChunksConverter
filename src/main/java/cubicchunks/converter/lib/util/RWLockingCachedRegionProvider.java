@@ -160,6 +160,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
             if (region == null) {
                 region = sourceProvider.getExistingRegion(location).orElse(null);
                 if (region != null) {
+                    if (regionLocationToRegion.size() > maxCacheSize) {
+                        clearRegions();
+                    }
                     regionLocationToRegion.put(regionKey, region);
                 }
                 if (region == null && canCreate) {
@@ -180,6 +183,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
                     clearRegions();
                 }
                 region = sourceProvider.getRegion(location);
+                if (regionLocationToRegion.size() > maxCacheSize) {
+                    clearRegions();
+                }
                 regionLocationToRegion.put(regionKey, region);
                 cons.accept(region);
             } finally {
@@ -203,6 +209,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
             if (region == null) {
                 region = sourceProvider.getExistingRegion(location).orElse(null);
                 if (region != null) {
+                    if (regionLocationToRegion.size() > maxCacheSize) {
+                        clearRegions();
+                    }
                     regionLocationToRegion.put(regionKey, region);
                 }
                 if (region == null && canCreate) {
