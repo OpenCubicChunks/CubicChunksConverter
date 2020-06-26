@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.convert.io;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.ChunkDataWriter;
+import cubicchunks.converter.lib.util.MemoryWriteRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -70,7 +71,7 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
                 SaveSection2D section2d = new SaveSection2D(
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d, (keyProv, r) ->
-                                        new Region.Builder<EntryLocation2D>()
+                                        new MemoryWriteRegion.Builder<EntryLocation2D>()
                                                 .setDirectory(part2d)
                                                 .setRegionKey(r)
                                                 .setKeyProvider(keyProv)
@@ -88,7 +89,7 @@ public class CubicChunkWriter implements ChunkDataWriter<CubicChunksColumnData> 
                 SaveSection3D section3d = new SaveSection3D(
                         new RWLockingCachedRegionProvider<>(
                                 new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d, (keyProv, r) ->
-                                        new Region.Builder<EntryLocation3D>()
+                                        new MemoryWriteRegion.Builder<EntryLocation3D>()
                                                 .setDirectory(part3d)
                                                 .setRegionKey(r)
                                                 .setKeyProvider(keyProv)

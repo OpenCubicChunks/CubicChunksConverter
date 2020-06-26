@@ -31,6 +31,7 @@ import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
+import cubicchunks.converter.lib.util.MemoryWriteRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
@@ -67,7 +68,7 @@ public class AnvilChunkWriter implements ChunkDataWriter<MultilayerAnvilChunkDat
                 Utils.createDirectories(regionDir);
                 return new MinecraftSaveSection(new RWLockingCachedRegionProvider<>(
                         new SimpleRegionProvider<>(new MinecraftChunkLocation.Provider(MCA.name().toLowerCase()), regionDir, (keyProvider, regionKey) ->
-                                Region.<MinecraftChunkLocation>builder()
+                                MemoryWriteRegion.<MinecraftChunkLocation>builder()
                                         .setDirectory(regionDir)
                                         .setSectorSize(4096)
                                         .setKeyProvider(keyProvider)

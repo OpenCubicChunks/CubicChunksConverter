@@ -163,8 +163,8 @@ public class ReadNoLockCachedRegionProvider<K extends IKey<K>> implements IRegio
     public synchronized void clearRegions() throws IOException {
         Iterator<IRegion<?>> it = regionLocationToRegion.values().iterator();
         while (it.hasNext()) {
-            it.remove();
             it.next().close();
+            it.remove();
         }
     }
 }

@@ -53,6 +53,7 @@ public class WorldConverter<IN, OUT> {
     private volatile boolean errored = false;
     // handle errors one at a time
     private final Object errorLock = new Object();
+    private Thread countingThread;
 
     public WorldConverter(
         LevelInfoConverter<IN, OUT> levelConverter,
@@ -104,6 +105,11 @@ public class WorldConverter<IN, OUT> {
         } catch (InterruptedException e) {
             // just shutdown
         } finally {
+            try {
+                countingThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             convertQueue.shutdown();
             boolean shutdownNow = false;
             try {
@@ -176,11 +182,11 @@ public class WorldConverter<IN, OUT> {
     }
 
     private void startCounting() {
-        new Thread(() -> {
+        countingThread = new Thread(() -> {
             try {
                 reader.countInputChunks(() -> {
                     int v = chunkCount.getAndIncrement();
-                    if ((v & (16*1024 - 1)) == 0) {
+                    if ((v & (16 * 1024 - 1)) == 0) {
                         System.out.println("Chunk counting: " + v);
                     }
                 });
@@ -189,7 +195,8 @@ public class WorldConverter<IN, OUT> {
             } catch (InterruptedException e) {
                 // stop
             }
-        }, "Chunk and File counting thread").start();
+        }, "Chunk and File counting thread");
+        countingThread.start();
     }
 
     private void handleError(Throwable t, IProgressListener progress) {
