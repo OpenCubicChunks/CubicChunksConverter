@@ -141,7 +141,7 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
                 header.putInt(0);
                 continue;
             }
-            int sectorCount = ceilDiv(writeEntry.buffer.remaining(), sectorSize);
+            int sectorCount = ceilDiv(writeEntry.buffer.capacity(), sectorSize);
             header.putInt(packed(new RegionEntryLocation(writePos, sectorCount)));
             writePos += sectorCount;
         }
