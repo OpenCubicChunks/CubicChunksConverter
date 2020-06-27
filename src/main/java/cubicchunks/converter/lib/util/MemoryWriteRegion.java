@@ -146,11 +146,13 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
             writePos += sectorCount;
         }
         file.position(0);
+        header.position(0);
         file.write(header);
         for (WriteEntry writeEntry : writeEntries) {
             if (writeEntry == null) {
                 continue;
             }
+            writeEntry.buffer.position(0);
             file.write(writeEntry.buffer);
         }
         Arrays.fill(writeEntries, null);
