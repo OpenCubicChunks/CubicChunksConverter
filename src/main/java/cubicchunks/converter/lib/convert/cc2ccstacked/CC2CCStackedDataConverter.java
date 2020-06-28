@@ -55,15 +55,6 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
             throw new UncheckedIOException("stackedConfig.txt doesnt exist!", e);
         }
 
-//        tilePositionsList = Arrays.asList(
-//                Arrays.asList(new BoundingBox(0, 0, 0, 9, 9, 9),
-//                        new BoundingBox(10, 0, 0, 19, 9, 9),
-//                        new BoundingBox(20, 0, 0, 29, 9, 9)),
-//
-//                Arrays.asList(new BoundingBox(0, 0, 20, 9, 9, 29),
-//                        new BoundingBox(10, 0, 20, 19, 9, 29),
-//                        new BoundingBox(20, 0, 20, 29, 9, 29))
-//        );
         boundingBoxOffsets = new int[tilePositionsList.size()][];
         for (int k = 0; k < tilePositionsList.size(); k++) {
             boundingBoxOffsets[k] = new int[tilePositionsList.get(k).size()];
@@ -77,6 +68,7 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
             int dstOffset = boundingBoxOffsets[k][dstTileIdx[k]];
             for (int i = 0; i < boundingBoxOffsets[k].length; i++) {
                 boundingBoxOffsets[k][i] -= dstOffset;
+                boundingBoxOffsets[k][i] += tilePositionsList.get(k).get(dstTileIdx[k]).minY;
             }
         }
     }
@@ -121,7 +113,6 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
 
 
     @Override public CubicChunksColumnData convert(CubicChunksColumnData input) {
-        // split the data into world layers
         Map<Integer, ByteBuffer> cubes = input.getCubeData();
 
         Map<Integer, CompoundTag> oldCubeTags = new HashMap<>();
@@ -138,8 +129,8 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
         try {
             int[] columnPos = new int[2];
             Map<Integer, ByteBuffer> cubeData = compressCubeData(stackCubeData(oldCubeTags, columnPos));
-
-            ByteBuffer column = input.getColumnData();
+            EntryLocation2D inPos = input.getPosition();
+            ByteBuffer column = columnPos[0] != inPos.getEntryX() || columnPos[1] != inPos.getEntryZ() ? null : input.getColumnData();
 
             EntryLocation2D location = new EntryLocation2D(columnPos[0], columnPos[1]);
             return new CubicChunksColumnData(input.getDimension(), location, column, cubeData);
@@ -182,20 +173,17 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
             for (int tileListIdx = 0, positionsSize = tilePositionsList.size(); tileListIdx < positionsSize; tileListIdx++) {
                 List<BoundingBox> tilePositions = tilePositionsList.get(tileListIdx);
 
-                int localLayerPosX = Math.floorMod(cubeX, tilePositions.get(dstTileIdx[tileListIdx]).getSizeX());
-                int localLayerPosY = Math.floorMod(cubeY, tilePositions.get(dstTileIdx[tileListIdx]).getSizeY());
-                int localLayerPosZ = Math.floorMod(cubeZ, tilePositions.get(dstTileIdx[tileListIdx]).getSizeZ());
-
                 for (int i = 0, tilePositionsSize = tilePositions.size(); i < tilePositionsSize; i++) {
                     BoundingBox tilePosition = tilePositions.get(i);
                     if (tilePosition.intersects(cubeX, cubeY, cubeZ)) {
-                        dstX = localLayerPosX + tilePositions.get(dstTileIdx[tileListIdx]).minX;
-                        dstY = localLayerPosY + boundingBoxOffsets[tileListIdx][i];
-                        dstZ = localLayerPosZ + tilePositions.get(dstTileIdx[tileListIdx]).minZ;
+                        dstX = cubeX - tilePosition.minX + tilePositions.get(dstTileIdx[tileListIdx]).minX;
+                        dstY = cubeY  - tilePosition.minY + boundingBoxOffsets[tileListIdx][i];
+                        dstZ = cubeZ - tilePosition.minZ + tilePositions.get(dstTileIdx[tileListIdx]).minZ;
+
                         level.put(new IntTag("x", dstX));
                         level.put(new IntTag("y", dstY));
                         level.put(new IntTag("z", dstZ));
-                        //System.out.println(String.format("Index = %d, (%d, %d, %d) -> (%d, %d, %d)", i, cubeX, cubeY, cubeZ, dstX, dstY, dstZ));#
+                        //System.out.printf("Index = %d, (%d, %d, %d) -> (%d, %d, %d)%n", i, cubeX, cubeY, cubeZ, dstX, dstY, dstZ);
                         successful = true;
                     }
                 }
