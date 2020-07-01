@@ -99,6 +99,7 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
                 }
             }
         }
+        value.position(0);
         int size = value.remaining();
         int sizeWithSizeInfo = size + Integer.BYTES;
         int numSectors = getSectorNumber(sizeWithSizeInfo);
