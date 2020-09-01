@@ -23,30 +23,31 @@
  */
 package cubicchunks.converter.lib.convert.cc2ccstacked;
 
-import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
-import static cubicchunks.converter.lib.util.Utils.writeCompressed;
-
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import com.flowpowered.nbt.IntTag;
+import com.flowpowered.nbt.Tag;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
-import java.io.*;
-import java.lang.reflect.Array;
-import java.net.URL;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+
+import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
+import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 
 public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunksColumnData, CubicChunksColumnData> {
 
     List<List<BoundingBox>> tilePositionsList;
     int[] dstTileIdx = { 1, 1 };
 
-    private final int[][] boundingBoxOffsets;;
+    private final int[][] boundingBoxOffsets;
 
     public CC2CCStackedDataConverter() {
         try {
@@ -103,27 +104,40 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
             }
 
             //This is the cut and paste format
-            //example: `cut 0 0 0 3 3 3 paste 3 0 0 6 3 3`
-            if(split[0].equals("cut")) {
-                String boxName = "cut_paste_" + cutPasteIdx;
-                boxes.computeIfAbsent(boxName, list->new ArrayList<>()).add(new BoundingBox(
+            //example: `move 0 0 0 3 3 3 to 3 0 0`
+            //example: `move 0 0 0 3 3 3 by 3 0 0`
+            else if(split[0].equals("move")) {
+                String boxName = "move" + cutPasteIdx;
+
+                BoundingBox moveBox = new BoundingBox(
+                        Integer.parseInt(split[1]),
                         Integer.parseInt(split[2]),
                         Integer.parseInt(split[3]),
                         Integer.parseInt(split[4]),
                         Integer.parseInt(split[5]),
-                        Integer.parseInt(split[6]),
-                        Integer.parseInt(split[7])
-                ));
+                        Integer.parseInt(split[6])
+                );
+                boxes.computeIfAbsent(boxName, list -> new ArrayList<>()).add(moveBox);
 
-                //split[8] is the `paste` command, and is there just for a spacer and to make it clear what's happening to the user
-                boxes.computeIfAbsent(boxName, list->new ArrayList<>()).add(new BoundingBox(
-                        Integer.parseInt(split[9]),
-                        Integer.parseInt(split[10]),
-                        Integer.parseInt(split[11]),
-                        Integer.parseInt(split[12]),
-                        Integer.parseInt(split[13]),
-                        Integer.parseInt(split[14])
-                ));
+                if (split[7].equals("to")) {
+                    boxes.computeIfAbsent(boxName, list -> new ArrayList<>()).add(new BoundingBox(
+                            Integer.parseInt(split[8]),
+                            Integer.parseInt(split[9]),
+                            Integer.parseInt(split[10]),
+                            Integer.parseInt(split[8]) + moveBox.getSizeX(),
+                            Integer.parseInt(split[9]) + moveBox.getSizeY(),
+                            Integer.parseInt(split[10]) + moveBox.getSizeZ()
+                    ));
+                } else if (split[8].equals("by")) {
+                    boxes.computeIfAbsent(boxName, list -> new ArrayList<>()).add(new BoundingBox(
+                            moveBox.minX + Integer.parseInt(split[8]),
+                            moveBox.minY + Integer.parseInt(split[9]),
+                            moveBox.minZ + Integer.parseInt(split[10]),
+                            moveBox.minX + Integer.parseInt(split[8]) + moveBox.getSizeX(),
+                            moveBox.minY + Integer.parseInt(split[9]) + moveBox.getSizeY(),
+                            moveBox.minZ + Integer.parseInt(split[10]) + moveBox.getSizeZ()
+                    ));
+                }
                 mainIndices.putIfAbsent(boxName, 1);
             }
         }
@@ -223,6 +237,18 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
             columnPosOut[1] = dstZ;
         }
         return tags;
+    }
+
+    private static CompoundMap cloneMap(CompoundMap map) {
+        if (map == null) {
+            return null;
+        }
+
+        CompoundMap newMap = new CompoundMap();
+        for (Map.Entry<String, Tag<?>> entry : map.entrySet()) {
+            newMap.put(entry.getKey(), entry.getValue().clone());
+        }
+        return newMap;
     }
 
     //Returns true if cube data is going to be used for copy

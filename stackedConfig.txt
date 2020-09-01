@@ -1,6 +1,2 @@
-area_1 stack 0 0 -3 0 0 -3
-area_1 stack 0 0 -2 0 0 -2
-area_1 stack 0 0 -1 0 0 -1
-area_1 origin 0 0 0 0 0 0
-area_1 stack 0 0 1 0 0 1
-area_1 stack 0 0 2 0 0 2
+move 0 0 0 3 3 3 to 3 0 0
+move 3 0 0 6 3 3 by 3 3 3
