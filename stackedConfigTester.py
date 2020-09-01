@@ -1,3 +1,5 @@
+#TO USE THIS FILE, YOU WILL NEED THE "Pillow" LIBRARY. Get it from pip, (google it, it's very easy)
+
 from PIL import Image, ImageDraw, ImageOps
 from random import randint
 
@@ -80,7 +82,7 @@ def loadDataFromFile(filename):
 			if(len(split) <= 1):
 				continue
 
-			if(split[1] == "box"):
+			if(split[1] == "stack" or split[1] == "origin"):
 				if(split[0] not in boxes):
 					boxes[split[0]] = []
 				boxes[split[0]].append(BoundingBox(Vec2i(int(split[2]), int(split[4])), Vec2i(int(split[5]), int(split[7]))))

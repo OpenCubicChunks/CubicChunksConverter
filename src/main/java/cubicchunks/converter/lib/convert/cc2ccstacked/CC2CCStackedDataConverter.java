@@ -86,9 +86,7 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
 
             if(split.length <= 1) continue;
 
-            if(split[1].equals("main"))
-                mainIndices.computeIfAbsent(split[0], i->Integer.parseInt(split[2]));
-            else if(split[1].equals("box")) {
+            if(split[1].equals("stack") || split[1].equals("origin")) {
                 boxes.computeIfAbsent(split[0], list->new ArrayList<>()).add(new BoundingBox(
                         Integer.parseInt(split[2]),
                         Integer.parseInt(split[3]),
@@ -97,6 +95,9 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
                         Integer.parseInt(split[6]),
                         Integer.parseInt(split[7])
                 ));
+                if(split[1].equals("origin")) {
+                    mainIndices.computeIfAbsent(split[0], size->boxes.containsKey(split[0]) ? boxes.get(split[0]).size() : 0);
+                }
             }
         }
 
