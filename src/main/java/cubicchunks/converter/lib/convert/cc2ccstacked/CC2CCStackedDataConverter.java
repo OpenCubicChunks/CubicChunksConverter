@@ -80,12 +80,14 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
         Map<String, Integer> mainIndices = new HashMap<>();
         Map<String, List<BoundingBox>> boxes = new HashMap<>();
 
+        int cutPasteIdx = 0;
         for (String line : lines) {
 
             String[] split = line.split(" ");
 
             if(split.length <= 1) continue;
 
+            //This is the original stacking format
             if(split[1].equals("stack") || split[1].equals("origin")) {
                 boxes.computeIfAbsent(split[0], list->new ArrayList<>()).add(new BoundingBox(
                         Integer.parseInt(split[2]),
@@ -98,6 +100,31 @@ public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunks
                 if(split[1].equals("origin")) {
                     mainIndices.computeIfAbsent(split[0], size->boxes.containsKey(split[0]) ? boxes.get(split[0]).size() : 0);
                 }
+            }
+
+            //This is the cut and paste format
+            //example: `cut 0 0 0 3 3 3 paste 3 0 0 6 3 3`
+            if(split[0].equals("cut")) {
+                String boxName = "cut_paste_" + cutPasteIdx;
+                boxes.computeIfAbsent(boxName, list->new ArrayList<>()).add(new BoundingBox(
+                        Integer.parseInt(split[2]),
+                        Integer.parseInt(split[3]),
+                        Integer.parseInt(split[4]),
+                        Integer.parseInt(split[5]),
+                        Integer.parseInt(split[6]),
+                        Integer.parseInt(split[7])
+                ));
+
+                //split[8] is the `paste` command, and is there just for a spacer and to make it clear what's happening to the user
+                boxes.computeIfAbsent(boxName, list->new ArrayList<>()).add(new BoundingBox(
+                        Integer.parseInt(split[9]),
+                        Integer.parseInt(split[10]),
+                        Integer.parseInt(split[11]),
+                        Integer.parseInt(split[12]),
+                        Integer.parseInt(split[13]),
+                        Integer.parseInt(split[14])
+                ));
+                mainIndices.putIfAbsent(boxName, 1);
             }
         }
 
