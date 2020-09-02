@@ -79,6 +79,10 @@ public class ConverterConfig {
         return this.defaults.get(location);
     }
 
+    public boolean hasValue(String location) {
+        return this.overrides.containsKey(location) || this.defaults.containsKey(location);
+    }
+
     public Map<String, Object> getDefaults() {
         return new HashMap<>(defaults);
     }
