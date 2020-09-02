@@ -70,16 +70,16 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             EditTask.Type type = EditTask.Type.NONE;
 
             switch (split[0]) {
-                case "ct":
+                case "ct": case "cut":
                     type = EditTask.Type.CUT;
                     break;
-                case "cp":
+                case "cp": case "copy":
                     type = EditTask.Type.COPY;
                     break;
-                case "mv":
+                case "mv": case "move":
                     type = EditTask.Type.MOVE;
                     break;
-                case "rm":
+                case "rm": case "remove":
                     type = EditTask.Type.REMOVE;
                     break;
             }
