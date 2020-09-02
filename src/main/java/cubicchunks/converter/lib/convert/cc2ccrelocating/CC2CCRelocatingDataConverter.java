@@ -48,9 +48,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
     public CC2CCRelocatingDataConverter() {
         try {
-            relocateTasks = this.loadDataFromFile("stackedConfig.txt");
+            relocateTasks = this.loadDataFromFile("relocatingConfig.txt");
         } catch (IOException e) {
-            throw new UncheckedIOException("stackedConfig.txt doesnt exist!\n", e);
+            throw new UncheckedIOException("relocatingConfig.txt doesn't exist!\n", e);
         }
     }
 
