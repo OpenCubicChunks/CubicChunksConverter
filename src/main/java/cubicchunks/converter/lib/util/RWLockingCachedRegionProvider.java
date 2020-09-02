@@ -27,6 +27,7 @@ import cubicchunks.regionlib.api.region.IRegion;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.api.region.key.IKey;
 import cubicchunks.regionlib.api.region.key.RegionKey;
+import cubicchunks.regionlib.util.CheckedBiConsumer;
 import cubicchunks.regionlib.util.CheckedConsumer;
 import cubicchunks.regionlib.util.CheckedFunction;
 
@@ -127,7 +128,7 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
         }
     }
 
-    @Override public void forAllRegions(CheckedConsumer<? super IRegion<K>, IOException> consumer) throws IOException {
+    @Override public void forAllRegions(CheckedBiConsumer<RegionKey, ? super IRegion<K>, IOException> consumer) throws IOException {
         if (closed) {
             throw new IllegalStateException("Already closed");
         }

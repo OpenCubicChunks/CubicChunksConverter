@@ -114,7 +114,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                 IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
                 if (i == 0) {
 
-                    p.forAllRegions(reg -> {
+                    p.forAllRegions((key, reg) -> {
                         try {
                             reg.forEachKey(cons);
                             reg.close();
@@ -124,7 +124,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     });
                 } else {
                     int max = i;
-                    p.forAllRegions(reg -> {
+                    p.forAllRegions((regionKey, reg) -> {
                         reg.forEachKey(key -> {
                             // cancel if any of the providers before contain this key
                             for (int j = 0; j < max; j++) {
