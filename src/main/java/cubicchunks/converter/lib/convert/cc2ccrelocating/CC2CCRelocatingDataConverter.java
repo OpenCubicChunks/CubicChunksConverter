@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.convert.cc2ccstacked;
+package cubicchunks.converter.lib.convert.cc2ccrelocating;
 
 import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
@@ -42,11 +42,11 @@ import java.util.*;
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 
-public class CC2CCStackedDataConverter implements ChunkDataConverter<CubicChunksColumnData, CubicChunksColumnData> {
+public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChunksColumnData, CubicChunksColumnData> {
 
     private final List<EditTask> relocateTasks;
 
-    public CC2CCStackedDataConverter() {
+    public CC2CCRelocatingDataConverter() {
         try {
             relocateTasks = this.loadDataFromFile("stackedConfig.txt");
         } catch (IOException e) {

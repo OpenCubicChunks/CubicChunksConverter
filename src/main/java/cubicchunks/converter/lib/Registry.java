@@ -32,8 +32,8 @@ import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCDataConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCLevelInfoConverter;
-import cubicchunks.converter.lib.convert.cc2ccstacked.CC2CCStackedDataConverter;
-import cubicchunks.converter.lib.convert.cc2ccstacked.CC2CCStackedLevelInfoConverter;
+import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
+import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
@@ -44,10 +44,7 @@ import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
 import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
 import cubicchunks.converter.lib.convert.io.CubicChunkReader;
 import cubicchunks.converter.lib.convert.io.CubicChunkWriter;
-import cubicchunks.converter.lib.convert.io.NoopChunkWriter;
 import cubicchunks.converter.lib.convert.io.RobintonChunkReader;
-import cubicchunks.converter.lib.convert.noop.NoopDataConverter;
-import cubicchunks.converter.lib.convert.noop.NoopLevelInfoConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
 
@@ -78,7 +75,7 @@ public class Registry {
 
         registerConverter("Default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
-        registerConverter("Stacked", CC2CCStackedDataConverter::new, CC2CCStackedLevelInfoConverter::new, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCStackedDataConverter.class);
+        registerConverter("Stacked", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
         registerConverter("Default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);
     }
 
