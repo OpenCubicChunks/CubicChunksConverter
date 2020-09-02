@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
@@ -49,6 +50,8 @@ import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChunksColumnData, CubicChunksColumnData> {
 
     private final List<EditTask> relocateTasks;
+
+    private static final Logger LOGGER = Logger.getLogger(CC2CCRelocatingDataConverter.class.getSimpleName());
 
     @SuppressWarnings("unchecked")
     public CC2CCRelocatingDataConverter(ConverterConfig config) {
@@ -97,6 +100,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 case "kp": case "keep":
                     type = EditTask.Type.KEEP;
                     break;
+                default:
+                    LOGGER.warning("Unknown command: \"" + split[0] + "\"");
+
             }
             if(type == EditTask.Type.MOVE || type == EditTask.Type.COPY) {
                 BoundingBox srcBox = new BoundingBox(
@@ -195,7 +201,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
     @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
         Map<Integer, ByteBuffer> inCubes = input.getCubeData();
         Map<Integer, ByteBuffer> cubes = new HashMap<>();
-        int i = 0;
+
         //Split out cubes that are only in a keep tasked bounding box
         Map<Integer, ByteBuffer> keepOnlyCubes = new HashMap<>();
         for(Map.Entry<Integer, ByteBuffer> entry : inCubes.entrySet()) {
@@ -204,21 +210,26 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             boolean anyTask = false;
             for(EditTask task : relocateTasks) {
                 if(task.getSourceBox().intersects(input.getPosition().getEntryX(), entry.getKey(), input.getPosition().getEntryZ())) {
-                    //Don't need to test cube against offset box?
                     anyTask = true;
-                    if(task.getType() != EditTask.Type.KEEP)
+                    if(task.getType() != EditTask.Type.KEEP) {
                         anyNonKeep = true;
+                        break;
+                    }
                 }
+                if(task.getOffset() != null)
+                    if(task.getSourceBox().add(task.getOffset()).intersects(input.getPosition().getEntryX(), entry.getKey(), input.getPosition().getEntryZ())) {
+                        anyTask = true;
+                        if(task.getType() != EditTask.Type.KEEP) {
+                            anyNonKeep = true;
+                            break;
+                        }
+                    }
             }
             if(anyTask) {
                 if(!anyNonKeep) {
                     keepOnlyCubes.put(entry.getKey(), entry.getValue());
                     cubes.remove(entry.getKey());
-                    i++;
                 }
-            } else {
-                cubes.remove(entry.getKey());
-                i++;
             }
         }
 
@@ -279,6 +290,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             boolean modified = false;
             boolean deleted = false;
             for (EditTask task : this.relocateTasks) {
+                if(task.getType() == EditTask.Type.KEEP) {
+                    continue;
+                }
                 if (task.getType() == EditTask.Type.REMOVE && task.getSourceBox().intersects(cubeX, cubeY, cubeZ)) {
                     deleted = true;
                     continue;
