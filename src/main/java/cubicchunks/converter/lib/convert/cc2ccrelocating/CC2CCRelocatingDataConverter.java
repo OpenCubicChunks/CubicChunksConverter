@@ -193,7 +193,34 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
     }
 
     @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
-        Map<Integer, ByteBuffer> cubes = input.getCubeData();
+        Map<Integer, ByteBuffer> inCubes = input.getCubeData();
+        Map<Integer, ByteBuffer> cubes = new HashMap<>();
+        int i = 0;
+        //Split out cubes that are only in a keep tasked bounding box
+        Map<Integer, ByteBuffer> keepOnlyCubes = new HashMap<>();
+        for(Map.Entry<Integer, ByteBuffer> entry : inCubes.entrySet()) {
+            cubes.put(entry.getKey(), entry.getValue());
+            boolean anyNonKeep = false;
+            boolean anyTask = false;
+            for(EditTask task : relocateTasks) {
+                if(task.getSourceBox().intersects(input.getPosition().getEntryX(), entry.getKey(), input.getPosition().getEntryZ())) {
+                    //Don't need to test cube against offset box?
+                    anyTask = true;
+                    if(task.getType() != EditTask.Type.KEEP)
+                        anyNonKeep = true;
+                }
+            }
+            if(anyTask) {
+                if(!anyNonKeep) {
+                    keepOnlyCubes.put(entry.getKey(), entry.getValue());
+                    cubes.remove(entry.getKey());
+                    i++;
+                }
+            } else {
+                cubes.remove(entry.getKey());
+                i++;
+            }
+        }
 
         Map<Integer, CompoundTag> oldCubeTags = new HashMap<>();
         cubes.forEach((key, value) ->
@@ -216,6 +243,12 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
                 EntryLocation2D location = new EntryLocation2D(entry.getKey().getX(), entry.getKey().getY());
                 columnData.add(new CubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue())));
+            }
+            for (Map.Entry<Integer, ByteBuffer> entry : keepOnlyCubes.entrySet()) {
+                Map<Integer, ByteBuffer> map = new HashMap<>();
+                map.put(entry.getKey(), entry.getValue());
+
+                columnData.add(new CubicChunksColumnData(input.getDimension(), input.getPosition(), input.getColumnData(), map));
             }
 
             return columnData;

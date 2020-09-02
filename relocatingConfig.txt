@@ -1,5 +1,6 @@
-keep all
+//kp all
 
+//ct all
 ct 0 0 0 1 1 1
 ct 1 0 0 1 1 1 to 5 0 0
 ct 2 0 0 1 1 1 by 5 0 0
@@ -10,4 +11,5 @@ cp 2 0 0 1 1 1 by 5 0 0
 mv 1 0 0 1 1 1 to 5 0 0
 mv 2 0 0 1 1 1 by 5 0 0
 
+//rm all
 rm 1 0 0 1 1 1
