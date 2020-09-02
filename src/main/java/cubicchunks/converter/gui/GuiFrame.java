@@ -24,7 +24,7 @@
 package cubicchunks.converter.gui;
 
 import cubicchunks.converter.lib.Registry;
-import cubicchunks.converter.lib.convert.ChunkDataConverter;
+import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.WorldConverter;
 import cubicchunks.converter.lib.util.Utils;
 
@@ -38,8 +38,11 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class GuiFrame extends JFrame {
 
@@ -327,30 +330,33 @@ public class GuiFrame extends JFrame {
             updateConvertBtn();
         };
 
-        ChunkDataConverter<Object, Object> done;
-        try {
-            done = Registry.getConverter(inFormat, outFormat, converterName).apply(error -> {
-                JOptionPane.showMessageDialog(this, error, "Error", JOptionPane.ERROR_MESSAGE);
-                failed.set(true);
-            });
-        } catch (Exception ex) {
-            if (!failed.get()) {
-                throw ex;
-            } else {
-                // TODO: logging
-                ex.printStackTrace();
+        Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoader(inFormat, outFormat, converterName);
+        ConverterConfig conf = new ConverterConfig(new HashMap<>());
+        if (configLoader != null) {
+            try {
+                conf = configLoader.apply(error -> {
+                    JOptionPane.showMessageDialog(this, error, "Error", JOptionPane.ERROR_MESSAGE);
+                    failed.set(true);
+                });
+            } catch (Exception ex) {
+                if (!failed.get()) {
+                    throw ex;
+                } else {
+                    // TODO: logging
+                    ex.printStackTrace();
+                    updateProgress.run();
+                    return;
+                }
+            }
+            if (failed.get()) {
                 updateProgress.run();
                 return;
             }
         }
-        if (failed.get()) {
-            updateProgress.run();
-            return;
-        }
         WorldConverter<?, ?> converter = new WorldConverter<>(
             Registry.getLevelConverter(inFormat, outFormat, converterName).apply(srcPath, dstPath),
-            Registry.getReader(inFormat).apply(srcPath),
-            done,
+            Registry.getReader(inFormat).apply(srcPath, conf),
+            Registry.getConverter(inFormat, outFormat, converterName).apply(conf),
             Registry.getWriter(outFormat).apply(dstPath)
         );
 

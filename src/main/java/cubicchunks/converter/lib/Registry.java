@@ -26,6 +26,7 @@ package cubicchunks.converter.lib;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
+import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.ChunkDataReader;
 import cubicchunks.converter.lib.convert.ChunkDataWriter;
@@ -56,15 +57,16 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class Registry {
-    private static final BiMap<String, Function<Path, ? extends ChunkDataReader<?>>> readersByName = Maps.synchronizedBiMap(HashBiMap.create());
-    private static final BiMap<Class<?>, Function<Path, ? extends ChunkDataReader<?>>> readersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<String, BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<?>>> readersByName = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<Class<?>, BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<?>>> readersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
     private static final BiMap<String, Function<Path, ? extends ChunkDataWriter<?>>> writersByName = Maps.synchronizedBiMap(HashBiMap.create());
     private static final BiMap<Class<?>, Function<Path, ? extends ChunkDataWriter<?>>> writersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
     private static final BiMap<StringTriple, Class<? extends ChunkDataConverter<?, ?>>> convertersByName = Maps.synchronizedBiMap(HashBiMap.create());
-    private static final BiMap<ClassTriple<?, ?, ?>, Function<Consumer<String>, ? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<ClassTriple<?, ?, ?>, Function<ConverterConfig, ? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
     private static final BiMap<ClassTriple<?, ?, ?>, BiFunction<Path, Path, ? extends LevelInfoConverter<?, ?>>> levelConvertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<ClassTriple<?, ?, ?>, Function<Consumer<Throwable>, ConverterConfig>> configLoaders = Maps.synchronizedBiMap(HashBiMap.create());
 
     static {
         registerReader("Anvil", AnvilChunkReader::new, AnvilChunkData.class);
@@ -76,13 +78,17 @@ public class Registry {
 
         registerConverter("Default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
-        registerConverter("Relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
+        registerConverter("Relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CC2CCRelocatingDataConverter::loadConfig, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
         registerConverter("Default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);
     }
 
     // can't have all named register because of type erasure
 
     public static <T> void registerReader(String name, Function<Path, ChunkDataReader<T>> reader, Class<T> clazz) {
+        registerReader(name, (path, conf) -> reader.apply(path), clazz);
+    }
+
+    public static <T> void registerReader(String name, BiFunction<Path, ConverterConfig, ChunkDataReader<T>> reader, Class<T> clazz) {
         readersByName.put(name, reader);
         readersByClass.put(clazz, reader);
     }
@@ -96,16 +102,19 @@ public class Registry {
                                                    BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out,
                                                    Class<? extends ChunkDataConverter<IN, OUT>> converter) {
         convertersByName.put(new StringTriple(getReader(in), getWriter(out), name), converter);
-        convertersByClass.put(new ClassTriple<>(in, out, converter), errHandler -> converterFactory.get());
+        convertersByClass.put(new ClassTriple<>(in, out, converter), conf -> converterFactory.get());
         levelConvertersByClass.put(new ClassTriple<>(in, out, converter), levelConv);
     }
 
-    public static <IN, OUT> void registerConverter(String name,  Function<Consumer<String>, ChunkDataConverter<IN, OUT>> converterFactory,
-                                                   BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out,
+    public static <IN, OUT> void registerConverter(String name, Function<ConverterConfig, ChunkDataConverter<IN, OUT>> converterFactory,
+                                                   BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv,
+                                                   Function<Consumer<Throwable>, ConverterConfig> loadConfig,
+                                                   Class<IN> in, Class<OUT> out,
                                                    Class<? extends ChunkDataConverter<IN, OUT>> converter) {
         convertersByName.put(new StringTriple(getReader(in), getWriter(out), name), converter);
         convertersByClass.put(new ClassTriple<>(in, out, converter), converterFactory);
         levelConvertersByClass.put(new ClassTriple<>(in, out, converter), levelConv);
+        configLoaders.put(new ClassTriple<>(in, out, converter), loadConfig);
     }
 
     public static Iterable<String> getWriters() {
@@ -121,8 +130,8 @@ public class Registry {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> Function<Path, ? extends ChunkDataReader<T>> getReader(String name) {
-        return (Function<Path, ? extends ChunkDataReader<T>>) readersByName.get(name);
+    public static <T> BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<T>> getReader(String name) {
+        return (BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<T>>) readersByName.get(name);
     }
 
     @SuppressWarnings("unchecked")
@@ -145,13 +154,26 @@ public class Registry {
     }
 
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> Function<Consumer<String>, ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName, String converterName) {
+    public static <IN, OUT> Function<ConverterConfig, ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName, String converterName) {
         ClassTriple<IN, OUT, ChunkDataConverter<IN, OUT>> pair = new ClassTriple<>(
                 getReaderClass(inputName),
                 getWriterClass(outputName),
                 getConverterClass(new StringTriple(inputName, outputName, converterName))
         );
-        return (Function<Consumer<String>, ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
+        return (Function<ConverterConfig, ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
+    }
+
+    public static Function<Consumer<Throwable>, ConverterConfig> getConfigLoader(String inputName, String outputName, String converterName) {
+        ClassTriple<?, ?, ChunkDataConverter<?, ?>> triple = new ClassTriple<>(
+                getReaderClass(inputName),
+                getWriterClass(outputName),
+                getConverterClass(new StringTriple(inputName, outputName, converterName))
+        );
+        return configLoaders.get(triple);
+    }
+
+    public static Function<Consumer<Throwable>, ConverterConfig> getConfigLoader(ClassTriple<?, ?, ?> classes) {
+        return configLoaders.get(classes);
     }
 
     @SuppressWarnings("unchecked")

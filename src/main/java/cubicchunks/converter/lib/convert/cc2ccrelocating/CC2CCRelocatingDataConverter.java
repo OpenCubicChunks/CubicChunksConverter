@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.convert.cc2ccrelocating;
 import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
+import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -47,20 +48,23 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
     private final List<EditTask> relocateTasks;
 
-    public CC2CCRelocatingDataConverter(Consumer<String> errorHandler) {
-        try {
-            relocateTasks = this.loadDataFromFile("relocatingConfig.txt");
-        } catch (IOException e) {
-            errorHandler.accept("Couldn't load relocatingConfig.txt, make sure the file exists: " + e.getLocalizedMessage());
-            throw new UncheckedIOException(e);
-        } catch (RuntimeException e) {
-            // TODO: better error messages, check for syntax errors when parsing
-            errorHandler.accept("Error loading relocatingConfig.txt: " + e);
-            throw e;
-        }
+    @SuppressWarnings("unchecked")
+    public CC2CCRelocatingDataConverter(ConverterConfig config) {
+        relocateTasks = (List<EditTask>) config.getValue("relocations");
     }
 
-    List<EditTask> loadDataFromFile(String filename) throws IOException {
+    public static ConverterConfig loadConfig(Consumer<Throwable> throwableConsumer) {
+        ConverterConfig conf = new ConverterConfig(new HashMap<>());
+        try {
+            conf.set("relocations", loadDataFromFile("relocatingConfig.txt"));
+        } catch (IOException | RuntimeException e) {
+            throwableConsumer.accept(e);
+            return null;
+        }
+        return conf;
+    }
+
+    private static List<EditTask> loadDataFromFile(String filename) throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(filename));
 
         List<EditTask> tasks = new ArrayList<>();
@@ -160,7 +164,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
     }
 
     @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
-        if(true)throw new RuntimeException();
         Map<Integer, ByteBuffer> cubes = input.getCubeData();
 
         Map<Integer, CompoundTag> oldCubeTags = new HashMap<>();
@@ -287,7 +290,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
         return tagMap;
     }
-
     //Returns true if cube data is going to be used for copy
     private boolean isCubeInCopyOrPasteLoc(int x, int y, int z) {
         for(EditTask task : this.relocateTasks) {
@@ -303,6 +305,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         }
         return false;
     }
+
     private boolean isColumnInCopyOrPasteLoc(int x, int z) {
         for(EditTask task : this.relocateTasks) {
             if (task.getSourceBox().columnIntersects(x, z) || task.getSourceBox().columnIntersects(
