@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.convert;
 import cubicchunks.converter.lib.IProgressListener;
 
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -246,10 +247,12 @@ public class WorldConverter<IN, OUT> {
 
         @Override public Void call() {
             try {
-                OUT converted = converter.convert(toConvert);
-                IOWriteTask<OUT> data = new IOWriteTask<>(converted, writer, worldConv, progress);
-                progress.update(null);
-                ioExecutor.submit(data);
+                Set<OUT> converted_arr = converter.convert(toConvert);
+                for(OUT converted : converted_arr) {
+                    IOWriteTask<OUT> data = new IOWriteTask<>(converted, writer, worldConv, progress);
+                    progress.update(null);
+                    ioExecutor.submit(data);
+                }
             } catch (Throwable t) {
                 worldConv.handleError(t, progress);
             }
