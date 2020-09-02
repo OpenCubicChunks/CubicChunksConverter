@@ -26,19 +26,15 @@ package cubicchunks.converter.lib.convert;
 import cubicchunks.converter.lib.IProgressListener;
 
 import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class WorldConverter<IN, OUT> {
 
-    private static final int THREADS = Runtime.getRuntime().availableProcessors();
-    private static final int CONVERT_QUEUE_SIZE = 64 * THREADS;
-    private static final int IO_QUEUE_SIZE = 32 * THREADS;
+    private static final int THREADS = Runtime.getRuntime().availableProcessors()+1;
+    private static final int CONVERT_QUEUE_SIZE = 64 * THREADS * 2;
+    private static final int IO_QUEUE_SIZE = 32 * THREADS * 10;
 
     private final LevelInfoConverter<IN, OUT> levelConverter;
     private final ChunkDataReader<IN> reader;
@@ -46,18 +42,19 @@ public class WorldConverter<IN, OUT> {
     private final ChunkDataWriter<OUT> writer;
 
     private final AtomicInteger chunkCount;
-    private int copyChunks;
+    private volatile int copyChunks;
 
     private final ArrayBlockingQueue<Runnable> convertQueueImpl;
     private final ArrayBlockingQueue<Runnable> ioQueueImpl;
 
-    private final ThreadPoolExecutor convertQueue;
-    private final ThreadPoolExecutor ioQueue;
+    private final ExecutorService convertQueue;
+    private final ExecutorService ioQueue;
 
     private volatile boolean discardConverted = false;
     private volatile boolean errored = false;
     // handle errors one at a time
     private final Object errorLock = new Object();
+    private Thread countingThread;
 
     public WorldConverter(
         LevelInfoConverter<IN, OUT> levelConverter,
@@ -84,28 +81,36 @@ public class WorldConverter<IN, OUT> {
         chunkCount = new AtomicInteger(0);
 
         convertQueueImpl = new ArrayBlockingQueue<>(CONVERT_QUEUE_SIZE);
-        convertQueue = new ThreadPoolExecutor(THREADS, THREADS, 0L, TimeUnit.MILLISECONDS, convertQueueImpl);
-        convertQueue.setRejectedExecutionHandler(handler);
+        convertQueue = new ThreadPoolExecutor(THREADS, THREADS, 1000L, TimeUnit.MILLISECONDS, convertQueueImpl);
+        ((ThreadPoolExecutor)convertQueue).setRejectedExecutionHandler(handler);
 
         ioQueueImpl = new ArrayBlockingQueue<>(IO_QUEUE_SIZE);
-        ioQueue = new ThreadPoolExecutor(THREADS, THREADS, 0L, TimeUnit.MILLISECONDS, ioQueueImpl);
-        ioQueue.setRejectedExecutionHandler(handler);
+        ioQueue = new ThreadPoolExecutor(1, 1, 1000L, TimeUnit.MILLISECONDS, ioQueueImpl);
+        ((ThreadPoolExecutor)ioQueue).setRejectedExecutionHandler(handler);
     }
 
     public void convert(IProgressListener progress) throws IOException {
-        startCounting();
+        startCounting(progress);
 
         System.out.println("Starting conversion");
 
         long startTime = System.nanoTime();
+        final Object object = new Object();
         try {
             reader.loadChunks(inData -> {
                 convertQueue.submit(new ChunkConvertTask<>(converter, writer, progress, this, ioQueue, inData));
-                copyChunks++;
+                synchronized(object) {
+                    copyChunks++;
+                }
             });
         } catch (InterruptedException e) {
             // just shutdown
         } finally {
+            try {
+                countingThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             convertQueue.shutdown();
             boolean shutdownNow = false;
             try {
@@ -177,16 +182,22 @@ public class WorldConverter<IN, OUT> {
         return IO_QUEUE_SIZE;
     }
 
-    private void startCounting() {
-        new Thread(() -> {
+    private void startCounting(IProgressListener progress) {
+        countingThread = new Thread(() -> {
             try {
-                reader.countInputChunks(chunkCount::getAndIncrement);
+                reader.countInputChunks(() -> {
+                    int v = chunkCount.getAndIncrement();
+                    if ((v & 255) == 0) {
+                        progress.update(null);
+                    }
+                });
             } catch (IOException e) {
                 throw new RuntimeException(e);
             } catch (InterruptedException e) {
                 // stop
             }
-        }, "Chunk and File counting thread").start();
+        }, "Chunk and File counting thread");
+        countingThread.start();
     }
 
     private void handleError(Throwable t, IProgressListener progress) {
@@ -215,7 +226,7 @@ public class WorldConverter<IN, OUT> {
         private final ChunkDataWriter<OUT> writer;
         private final IProgressListener progress;
         private WorldConverter<IN, OUT> worldConv;
-        private final ThreadPoolExecutor ioExecutor;
+        private final ExecutorService ioExecutor;
         private final IN toConvert;
 
         ChunkConvertTask(
@@ -223,7 +234,7 @@ public class WorldConverter<IN, OUT> {
             ChunkDataWriter<OUT> writer,
             IProgressListener progress,
             WorldConverter<IN, OUT> worldConv,
-            ThreadPoolExecutor ioExecutor,
+            ExecutorService ioExecutor,
             IN toConvert) {
 
             this.converter = converter;
@@ -236,10 +247,12 @@ public class WorldConverter<IN, OUT> {
 
         @Override public Void call() {
             try {
-                OUT converted = converter.convert(toConvert);
-                IOWriteTask<OUT> data = new IOWriteTask<>(converted, writer, worldConv, progress);
-                progress.update(null);
-                ioExecutor.submit(data);
+                Set<OUT> converted_arr = converter.convert(toConvert);
+                for(OUT converted : converted_arr) {
+                    IOWriteTask<OUT> data = new IOWriteTask<>(converted, writer, worldConv, progress);
+                    progress.update(null);
+                    ioExecutor.submit(data);
+                }
             } catch (Throwable t) {
                 worldConv.handleError(t, progress);
             }

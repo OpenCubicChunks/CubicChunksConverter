@@ -29,8 +29,11 @@ import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.util.MemoryReadRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
+import cubicchunks.converter.lib.util.Utils;
+import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.impl.SaveCubeColumns;
@@ -38,15 +41,22 @@ import cubicchunks.regionlib.impl.save.SaveSection2D;
 import cubicchunks.regionlib.impl.save.SaveSection3D;
 import cubicchunks.regionlib.lib.ExtRegion;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
-import cubicchunks.regionlib.util.Utils;
+import cubicchunks.regionlib.util.CheckedConsumer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -56,6 +66,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private final CompletableFuture<ChunkList> chunkList = new CompletableFuture<>();
     private final Thread loadThread;
+    private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation2D>>> providers2d = new WeakHashMap<>();
+    private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation3D>>> providers3d = new WeakHashMap<>();
 
     public CubicChunkReader(Path srcDir) {
         super(srcDir, (dim, path) -> Files.exists(getDimensionPath(dim, path)) ? createSave(getDimensionPath(dim, path)) : null);
@@ -71,27 +83,65 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     @Override public void countInputChunks(Runnable increment) throws IOException {
         try {
-            Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = doCountChunks(increment);
+            Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimensions = doCountChunks(increment);
             chunkList.complete(new ChunkList(dimensions));
         } catch (UncheckedInterruptedException ex) {
             chunkList.complete(null);
         }
     }
 
-    private Map<Dimension, Map<EntryLocation2D, IntArrayList>> doCountChunks(Runnable increment) throws IOException, UncheckedInterruptedException {
-        Map<Dimension, Map<EntryLocation2D, IntArrayList>> dimensions = new ConcurrentHashMap<>();
+    private Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> doCountChunks(Runnable increment) throws IOException, UncheckedInterruptedException {
+        Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimensions = new HashMap<>();
         for (Map.Entry<Dimension, SaveCubeColumns> entry : saves.entrySet()) {
             SaveCubeColumns save = entry.getValue();
             Dimension dim = entry.getKey();
-            Map<EntryLocation2D, IntArrayList> chunks = dimensions.computeIfAbsent(dim, p -> new ConcurrentHashMap<>());
-            save.getSaveSection3D().forAllKeys(interruptibleConsumer(loc -> {
+            List<Map.Entry<EntryLocation2D, IntArrayList>> chunks = dimensions.computeIfAbsent(dim, p -> new ArrayList<>());
+            Map<EntryLocation2D, IntArrayList> chunksMap = new ConcurrentHashMap<>();
 
+            List<IRegionProvider<EntryLocation3D>> regionProviders = providers3d.get(save);
+
+            CheckedConsumer<EntryLocation3D, IOException> cons = interruptibleConsumer(loc -> {
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
-                chunks.computeIfAbsent(loc2d, l -> {
+                chunksMap.computeIfAbsent(loc2d, l -> {
                     increment.run();
-                    return new IntArrayList();
+                    IntArrayList arr = new IntArrayList();
+                    chunks.add(new AbstractMap.SimpleEntry<>(loc2d, arr));
+                    return arr;
                 }).add(loc.getEntryY());
-            }));
+            });
+
+            for (int i = 0; i < regionProviders.size(); i++) {
+                IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
+                if (i == 0) {
+
+                    p.forAllRegions(reg -> {
+                        try {
+                            reg.forEachKey(cons);
+                            reg.close();
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+                } else {
+                    int max = i;
+                    p.forAllRegions(reg -> {
+                        reg.forEachKey(key -> {
+                            // cancel if any of the providers before contain this key
+                            for (int j = 0; j < max; j++) {
+                                EntryLocation3D superKey = regionProviders.get(j)
+                                        .getExistingRegion(key)
+                                        .flatMap(r -> r.hasValue(key) ? Optional.of(key) : Optional.empty())
+                                        .orElse(null);
+                                if (superKey != null) {
+                                    return;
+                                }
+                            }
+                            cons.accept(key);
+                        });
+                        reg.close();
+                    });
+                }
+            }
         }
         return dimensions;
     }
@@ -109,27 +159,27 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
     }
 
     private void doLoadChunks(Consumer<? super CubicChunksColumnData> consumer, ChunkList list) throws IOException {
-        for (Map.Entry<Dimension, Map<EntryLocation2D, IntArrayList>> dimEntry : list.getChunks().entrySet()) {
+        for (Map.Entry<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
             }
             Dimension dim = dimEntry.getKey();
             SaveCubeColumns save = saves.get(dim);
-            dimEntry.getValue().entrySet().parallelStream().forEach(chunksEntry -> {
+            dimEntry.getValue().parallelStream().forEach(chunksEntry -> {
                 if (Thread.interrupted()) {
                     return;
                 }
                 try {
                     EntryLocation2D pos2d = chunksEntry.getKey();
                     IntArrayList yCoords = chunksEntry.getValue();
-                    ByteBuffer column = save.load(pos2d).orElse(null);
-                    Map<Integer, ByteBuffer> cubes = new ConcurrentHashMap<>();
+                    ByteBuffer column = save.load(pos2d, true).orElse(null);
+                    Map<Integer, ByteBuffer> cubes = new HashMap<>();
                     for (IntCursor yCursor : yCoords) {
                         if (Thread.interrupted()) {
                             return;
                         }
                         int y = yCursor.value;
-                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ())).orElseThrow(
+                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
                                 () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
                         cubes.put(y, cube);
                     }
@@ -156,18 +206,52 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
             Path part3d = path.resolve("region3d");
             Utils.createDirectories(part3d);
 
+            EntryLocation2D.Provider keyProv2d = new EntryLocation2D.Provider();
+            EntryLocation3D.Provider keyProv3d = new EntryLocation3D.Provider();
+
+            IRegionProvider<EntryLocation2D> prov2d1, prov2d2;
+            IRegionProvider<EntryLocation3D> prov3d1, prov3d2;
             SaveSection2D section2d = new SaveSection2D(
-                    new RWLockingCachedRegionProvider<>(
-                            SimpleRegionProvider.createDefault(new EntryLocation2D.Provider(), part2d, 512)
+                    prov2d1 = new RWLockingCachedRegionProvider<>(
+                            new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
+                                    new MemoryReadRegion.Builder<EntryLocation2D>()
+                                            .setDirectory(part2d)
+                                            .setRegionKey(r)
+                                            .setKeyProvider(keyProv2d)
+                                            .setSectorSize(512)
+                                            .build(),
+                                    (file, key) -> Files.exists(file)
+                            )
                     ),
-                    new RWLockingCachedRegionProvider<>(
+                    prov2d2 = new RWLockingCachedRegionProvider<>(
                             new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
-                                    (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey)
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
+                                    (file, key) -> Files.exists(file.resolveSibling(key.getRegionKey().getName() + ".ext"))
                             )
                     ));
-            SaveSection3D section3d = SaveSection3D.createAt(part3d);
+            SaveSection3D section3d = new SaveSection3D(
+                    prov3d1 = new RWLockingCachedRegionProvider<>(
+                            new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
+                                    new MemoryReadRegion.Builder<EntryLocation3D>()
+                                            .setDirectory(part3d)
+                                            .setRegionKey(r)
+                                            .setKeyProvider(keyProv3d)
+                                            .setSectorSize(512)
+                                            .build(),
+                                    (file, key) -> Files.exists(file)
+                            )
+                    ),
+                    prov3d2 = new RWLockingCachedRegionProvider<>(
+                            new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
+                                    (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
+                                    (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
+                            )
+                    ));
 
-            return new SaveCubeColumns(section2d, section3d);
+            SaveCubeColumns saveCubeColumns = new SaveCubeColumns(section2d, section3d);
+            providers2d.put(saveCubeColumns, Arrays.asList(prov2d1, prov2d2));
+            providers3d.put(saveCubeColumns, Arrays.asList(prov3d1, prov3d2));
+            return saveCubeColumns;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -175,13 +259,13 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private static class ChunkList {
 
-        private final Map<Dimension, Map<EntryLocation2D, IntArrayList>> chunks;
+        private final Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> chunks;
 
-        private ChunkList(Map<Dimension, Map<EntryLocation2D, IntArrayList>> chunks) {
+        private ChunkList(Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> chunks) {
             this.chunks = chunks;
         }
 
-        Map<Dimension, Map<EntryLocation2D, IntArrayList>> getChunks() {
+        Map<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> getChunks() {
             return chunks;
         }
     }

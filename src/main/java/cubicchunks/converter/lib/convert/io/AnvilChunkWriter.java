@@ -31,6 +31,7 @@ import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
+import cubicchunks.converter.lib.util.MemoryWriteRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
@@ -41,6 +42,7 @@ import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,13 +68,14 @@ public class AnvilChunkWriter implements ChunkDataWriter<MultilayerAnvilChunkDat
                 Utils.createDirectories(regionDir);
                 return new MinecraftSaveSection(new RWLockingCachedRegionProvider<>(
                         new SimpleRegionProvider<>(new MinecraftChunkLocation.Provider(MCA.name().toLowerCase()), regionDir, (keyProvider, regionKey) ->
-                                Region.<MinecraftChunkLocation>builder()
+                                MemoryWriteRegion.<MinecraftChunkLocation>builder()
                                         .setDirectory(regionDir)
                                         .setSectorSize(4096)
                                         .setKeyProvider(keyProvider)
                                         .setRegionKey(regionKey)
                                         .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-                                        .build()
+                                        .build(),
+                                (file, key) -> Files.exists(file)
                         )
                 ));
             }));

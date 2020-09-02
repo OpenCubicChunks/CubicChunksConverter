@@ -25,9 +25,10 @@ package cubicchunks.converter.lib.convert.noop;
 
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 
+import java.util.Collections;
+import java.util.Set;
+
 public class NoopDataConverter implements ChunkDataConverter<Object, Object> {
 
-    @Override public Object convert(Object input) {
-        return input;
-    }
+    @Override public Set<Object> convert(Object input) { return Collections.singleton(input); }
 }

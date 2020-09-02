@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.convert;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * Converts chunk data from {@link IN} format to {@link OUT} format.
@@ -36,11 +37,14 @@ public interface ChunkDataConverter<IN, OUT> {
      * Converts the supplied input. This is expected to be called from multiple threads.
      *
      * @param input The chunk data to convert
-     * @return The converted chunk data
+     * @return The converted chunk data. With the option of returning multiple converted pieces
      */
-    OUT convert(IN input);
+    Set<OUT> convert(IN input);
 
     default ConverterConfig getConfig() {
         return null;
     }
+
+    default String getName() { return null; }
+    default void setName(String name) {  }
 }

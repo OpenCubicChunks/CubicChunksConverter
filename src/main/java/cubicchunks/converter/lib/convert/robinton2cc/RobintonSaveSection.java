@@ -31,6 +31,7 @@ import cubicchunks.regionlib.lib.provider.SharedCachedRegionProvider;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 
@@ -57,7 +58,8 @@ public class RobintonSaveSection extends SaveSection<RobintonSaveSection, Robint
                                 .setRegionKey(r)
                                 .setKeyProvider(keyProv)
                                 .setSectorSize(256)
-                                .build()
+                                .build(),
+                        (dir, key) -> Files.exists(dir.resolve(key.getRegionKey().getName()))
                 )
         ));
     }

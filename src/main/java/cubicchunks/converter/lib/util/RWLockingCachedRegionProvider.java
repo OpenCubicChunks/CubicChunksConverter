@@ -48,7 +48,7 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Map<RegionKey, IRegion<?>> regionLocationToRegion = new ConcurrentHashMap<>(512);
-    private final int maxCacheSize = 256;
+    private final int maxCacheSize = 64;
 
     private boolean closed;
 
@@ -147,6 +147,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
 
     @SuppressWarnings("unchecked")
     private void forRegion(K location, CheckedConsumer<? super IRegion<K>, IOException> cons, boolean canCreate) throws IOException {
+        if (regionLocationToRegion.size() > maxCacheSize) {
+            clearRegions();
+        }
         IRegion<K> region;
         Lock readLock = lock.readLock();
         Lock writeLock = lock.writeLock();
@@ -176,9 +179,6 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
         if (createNew) {
             writeLock.lock();
             try {
-                if (regionLocationToRegion.size() > maxCacheSize) {
-                    clearRegions();
-                }
                 region = sourceProvider.getRegion(location);
                 regionLocationToRegion.put(regionKey, region);
                 cons.accept(region);
@@ -190,6 +190,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
 
     @SuppressWarnings("unchecked")
     public <R> Optional<R> fromRegion(K location, CheckedFunction<? super IRegion<K>, R, IOException> func, boolean canCreate) throws IOException {
+        if (regionLocationToRegion.size() > maxCacheSize) {
+            clearRegions();
+        }
         IRegion<K> region;
         Lock readLock = lock.readLock();
         Lock writeLock = lock.writeLock();
@@ -219,9 +222,6 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
         if (createNew) {
             writeLock.lock();
             try {
-                if (regionLocationToRegion.size() > maxCacheSize) {
-                    clearRegions();
-                }
                 region = sourceProvider.getRegion(location);
                 regionLocationToRegion.put(regionKey, region);
                 return Optional.of(func.apply(region));

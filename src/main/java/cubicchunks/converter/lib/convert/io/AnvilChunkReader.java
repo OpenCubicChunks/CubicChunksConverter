@@ -29,16 +29,16 @@ import static java.nio.file.Files.exists;
 
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
+import cubicchunks.converter.lib.util.MemoryReadRegion;
 import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
 import cubicchunks.converter.lib.util.UncheckedInterruptedException;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
 import cubicchunks.regionlib.impl.header.TimestampHeaderEntryProvider;
 import cubicchunks.regionlib.impl.save.MinecraftSaveSection;
-import cubicchunks.regionlib.lib.Region;
-import cubicchunks.regionlib.lib.provider.SharedCachedRegionProvider;
 import cubicchunks.regionlib.lib.provider.SimpleRegionProvider;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -57,13 +57,14 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
         Path directory = getDimensionPath(dim, path);
         return new MinecraftSaveSection(new RWLockingCachedRegionProvider<>(
                 new SimpleRegionProvider<>(new MinecraftChunkLocation.Provider(MCA.name().toLowerCase()), directory, (keyProvider, regionKey) ->
-                        Region.<MinecraftChunkLocation>builder()
+                        MemoryReadRegion.<MinecraftChunkLocation>builder()
                                 .setDirectory(directory)
                                 .setSectorSize(4096)
                                 .setKeyProvider(keyProvider)
                                 .setRegionKey(regionKey)
                                 .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
-                                .build()
+                                .build(),
+                        (file, key) -> Files.exists(file)
                 )
         ));
     }
@@ -104,7 +105,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
             }
             MinecraftSaveSection vanillaSave = entry.getValue();
             Dimension d = entry.getKey();
-            vanillaSave.forAllKeys(interruptibleConsumer(mcPos -> consumer.accept(new AnvilChunkData(d, mcPos, vanillaSave.load(mcPos).orElse(null)))));
+            vanillaSave.forAllKeys(interruptibleConsumer(mcPos -> consumer.accept(new AnvilChunkData(d, mcPos, vanillaSave.load(mcPos, true).orElse(null)))));
         }
     }
 

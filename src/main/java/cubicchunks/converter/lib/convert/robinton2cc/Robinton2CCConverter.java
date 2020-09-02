@@ -42,16 +42,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
 
 public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnData, CubicChunksColumnData> {
 
-    @Override public CubicChunksColumnData convert(RobintonColumnData input) {
+    @Override public Set<CubicChunksColumnData> convert(RobintonColumnData input) {
         try {
             Map<Integer, ByteBuffer> newData = new HashMap<>();
             for (int y : input.getCubeData().keySet()) {
@@ -70,7 +68,7 @@ public class Robinton2CCConverter implements ChunkDataConverter<RobintonColumnDa
                 newData.put(y, writeCompressed(newTag));
             }
 
-            return new CubicChunksColumnData(input.getDimension(), input.getPosition(), null, newData);
+            return Collections.singleton( new CubicChunksColumnData(input.getDimension(), input.getPosition(), null, newData));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

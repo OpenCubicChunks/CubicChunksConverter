@@ -45,19 +45,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData, CubicChunksColumnData> {
 
-    public CubicChunksColumnData convert(AnvilChunkData input) {
+    public Set<CubicChunksColumnData> convert(AnvilChunkData input) {
         try {
             Map<Integer, ByteBuffer> cubes = extractCubeData(input.getData());
             ByteBuffer column = extractColumnData(input.getData());
             EntryLocation2D location = new EntryLocation2D(input.getPosition().getEntryX(), input.getPosition().getEntryZ());
-            return new CubicChunksColumnData(input.getDimension(), location, column, cubes);
+            return Collections.singleton(new CubicChunksColumnData(input.getDimension(), location, column, cubes));
         } catch (IOException impossible) {
             throw new Error("ByteArrayInputStream doesn't throw IOException", impossible);
         }

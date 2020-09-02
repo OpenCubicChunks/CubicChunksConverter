@@ -122,7 +122,7 @@ public class RobintonChunkReader extends BaseMinecraftReader<RobintonColumnData,
                         return;
                     }
                     int y = yCursor.value;
-                    ByteBuffer cube = save.load(new RobintonEntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ())).orElseThrow(
+                    ByteBuffer cube = save.load(new RobintonEntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
                             () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
 
                     cubes.put(y, cube);

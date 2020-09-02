@@ -32,6 +32,8 @@ import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCDataConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCLevelInfoConverter;
+import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
+import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
@@ -42,10 +44,7 @@ import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
 import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
 import cubicchunks.converter.lib.convert.io.CubicChunkReader;
 import cubicchunks.converter.lib.convert.io.CubicChunkWriter;
-import cubicchunks.converter.lib.convert.io.NoopChunkWriter;
 import cubicchunks.converter.lib.convert.io.RobintonChunkReader;
-import cubicchunks.converter.lib.convert.noop.NoopDataConverter;
-import cubicchunks.converter.lib.convert.noop.NoopLevelInfoConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
 
@@ -62,8 +61,9 @@ public class Registry {
     private static final BiMap<String, Function<Path, ? extends ChunkDataWriter<?>>> writersByName = Maps.synchronizedBiMap(HashBiMap.create());
     private static final BiMap<Class<?>, Function<Path, ? extends ChunkDataWriter<?>>> writersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
-    private static final BiMap<ClassPair<?, ?>, Supplier<? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
-    private static final BiMap<ClassPair<?, ?>, BiFunction<Path, Path, ? extends LevelInfoConverter<?, ?>>> levelConvertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<StringTriple, Class<? extends ChunkDataConverter<?, ?>>> convertersByName = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<ClassTriple<?, ?, ?>, Supplier<? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<ClassTriple<?, ?, ?>, BiFunction<Path, Path, ? extends LevelInfoConverter<?, ?>>> levelConvertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
     static {
         registerReader("Anvil", AnvilChunkReader::new, AnvilChunkData.class);
@@ -73,28 +73,10 @@ public class Registry {
         registerWriter("Anvil", AnvilChunkWriter::new, MultilayerAnvilChunkData.class);
         registerWriter("CubicChunks", CubicChunkWriter::new, CubicChunksColumnData.class);
 
-        registerConverter(Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class);
-        registerConverter(CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class);
-        registerConverter(Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class);
-
-        registerNoops();
-    }
-
-    private static void registerNoops() {
-        registerWriter("No-op (debug)", NoopChunkWriter::new, Object.class);
-        for (String reader : readersByName.keySet()) {
-            Class<Object> dataClass = getReaderClass(reader);
-            //noinspection Convert2Lambda,Anonymous2MethodRef this needs to be anonymous class to guarantee they are all different objects
-            registerConverter(new Supplier<ChunkDataConverter<Object, Object>>() {
-                @Override public ChunkDataConverter<Object, Object> get() {
-                    return new NoopDataConverter();
-                }
-            }, new BiFunction<Path, Path, LevelInfoConverter<Object, Object>>() {
-                @Override public LevelInfoConverter<Object, Object> apply(Path p1, Path p2) {
-                    return new NoopLevelInfoConverter(p1, p2);
-                }
-            }, dataClass, Object.class);
-        }
+        registerConverter("Default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
+        registerConverter("Default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
+        registerConverter("Relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
+        registerConverter("Default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);
     }
 
     // can't have all named register because of type erasure
@@ -109,11 +91,12 @@ public class Registry {
         writersByClass.put(clazz, writer);
     }
 
-    public static <IN, OUT> void registerConverter(Supplier<ChunkDataConverter<IN, OUT>> conv,
-        BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out) {
-
-        convertersByClass.put(new ClassPair<>(in, out), conv);
-        levelConvertersByClass.put(new ClassPair<>(in, out), levelConv);
+    public static <IN, OUT> void registerConverter(String name, Supplier<ChunkDataConverter<IN, OUT>> converterFactory,
+                                                   BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out,
+                                                   Class<? extends ChunkDataConverter<IN, OUT>> converter) {
+        convertersByName.put(new StringTriple(getReader(in), getWriter(out), name), converter);
+        convertersByClass.put(new ClassTriple<>(in, out, converter), converterFactory);
+        levelConvertersByClass.put(new ClassTriple<>(in, out, converter), levelConv);
     }
 
     public static Iterable<String> getWriters() {
@@ -124,7 +107,7 @@ public class Registry {
         return readersByName.keySet();
     }
 
-    public static Iterable<ClassPair<?, ?>> getConverters() {
+    public static Iterable<ClassTriple<?, ?, ?>> getConverters() {
         return convertersByClass.keySet();
     }
 
@@ -148,32 +131,38 @@ public class Registry {
         return writersByName.inverse().get(writersByClass.get(clazz));
     }
 
+    public static String getConverter(Class<?> clazz) {
+        return convertersByName.inverse().get(clazz).converter;
+    }
+
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> Supplier<ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName) {
-        ClassPair<IN, OUT> pair = new ClassPair<>(
-            getReaderClass(inputName),
-            getWriterClass(outputName)
+    public static <IN, OUT> Supplier<ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName, String converterName) {
+        ClassTriple<IN, OUT, ChunkDataConverter<IN, OUT>> pair = new ClassTriple<>(
+                getReaderClass(inputName),
+                getWriterClass(outputName),
+                getConverterClass(new StringTriple(inputName, outputName, converterName))
         );
         return (Supplier<ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
     }
 
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> Supplier<ChunkDataConverter<IN, OUT>> getConverter(ClassPair<IN, OUT> classes) {
+    public static <IN, OUT, CONV> Supplier<ChunkDataConverter<IN, OUT>> getConverter(ClassTriple<IN, OUT, CONV> classes) {
         return (Supplier<ChunkDataConverter<IN, OUT>>) convertersByClass.get(classes);
     }
 
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> getLevelConverter(String inputName, String outputName) {
-        ClassPair<IN, OUT> pair = new ClassPair<>(
-            getReaderClass(inputName),
-            getWriterClass(outputName)
+    public static <IN, OUT> BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> getLevelConverter(String inputName, String outputName, String converterName) {
+        ClassTriple<IN, OUT, LevelInfoConverter<IN, OUT>> pair = new ClassTriple<>(
+                getReaderClass(inputName),
+                getWriterClass(outputName),
+                getConverterClass(new StringTriple(inputName, outputName, converterName))
         );
         return (BiFunction<Path, Path, LevelInfoConverter<IN, OUT>>) levelConvertersByClass.get(pair);
     }
 
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> getLevelConverter(ClassPair<IN, OUT> classes) {
-        return (BiFunction<Path, Path, LevelInfoConverter<IN, OUT>>) levelConvertersByClass.get(classes);
+    public static <IN, OUT, CONV extends LevelInfoConverter<IN, OUT>> BiFunction<Path, Path, CONV> getLevelConverter(ClassTriple<IN, OUT, ? extends ChunkDataConverter<IN, OUT>> classes) {
+        return (BiFunction<Path, Path, CONV>) levelConvertersByClass.get(classes);
     }
 
     @SuppressWarnings("unchecked")
@@ -186,44 +175,93 @@ public class Registry {
         return (Class<T>) writersByClass.inverse().get(getWriter(writer));
     }
 
-    public static class ClassPair<X, Y> {
+    @SuppressWarnings("unchecked")
+    public static <T> Class<T> getConverterClass(StringTriple registryKey) {
+        return (Class<T>) convertersByName.get(registryKey);
+    }
+
+    public static class ClassTriple<X, Y, Z> {
+
         private final Class<X> in;
         private final Class<Y> out;
+        private final Class<Z> converter;
 
-        private ClassPair(Class<X> in, Class<Y> out) {
+        public ClassTriple(Class<X> in, Class<Y> out, Class<Z> converter) {
             this.in = in;
             this.out = out;
-        }
-
-        public Class<X> getIn() {
-            return in;
+            this.converter = converter;
         }
 
         public Class<Y> getOut() {
             return out;
         }
 
-        @Override public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ClassPair<?, ?> classPair = (ClassPair<?, ?>) o;
-            return in.equals(classPair.in) &&
-                out.equals(classPair.out);
+        public Class<X> getIn() {
+            return in;
         }
 
-        @Override public int hashCode() {
-            return Objects.hash(in, out);
+        public Class<Z> getConverter() {
+            return converter;
         }
 
-        @Override public String toString() {
-            return "ClassPair{" +
-                "in=" + in +
-                ", out=" + out +
-                '}';
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ClassTriple<?, ?, ?> that = (ClassTriple<?, ?, ?>) o;
+            return in.equals(that.in) &&
+                    out.equals(that.out) &&
+                    converter.equals(that.converter);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(in, out, converter);
+        }
+
+        @Override
+        public String toString() {
+            return "ClassTriple{" +
+                    "in=" + in +
+                    ", out=" + out +
+                    ", converter=" + converter +
+                    '}';
+        }
+    }
+
+    private static class StringTriple {
+        public final String in;
+        public final String out;
+        public final String converter;
+
+        public StringTriple(String in, String out, String converter) {
+            this.in = in;
+            this.out = out;
+            this.converter = converter;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            StringTriple that = (StringTriple) o;
+            return in.equals(that.in) &&
+                    out.equals(that.out) &&
+                    converter.equals(that.converter);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(in, out, converter);
+        }
+
+        @Override
+        public String toString() {
+            return "StringTriple{" +
+                    "in='" + in + '\'' +
+                    ", out='" + out + '\'' +
+                    ", converter='" + converter + '\'' +
+                    '}';
         }
     }
 }
