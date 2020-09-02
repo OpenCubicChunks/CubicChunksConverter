@@ -56,6 +56,7 @@ import javax.swing.SwingWorker;
 public class ConverterWorker extends SwingWorker<Throwable, Void> {
 
     private final WorldConverter converter;
+    private final Runnable onFail;
     private final JFrame parent;
     private JProgressBar progressBar;
     private JProgressBar convertQueueFill;
@@ -63,12 +64,13 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
     private Runnable onDone;
 
     public ConverterWorker(WorldConverter converter, JProgressBar progressBar, JProgressBar convertQueueFill,
-        JProgressBar ioQueueFill, Runnable onDone, JFrame parent) {
+        JProgressBar ioQueueFill, Runnable onDone, Runnable onFail, JFrame parent) {
         this.converter = converter;
         this.progressBar = progressBar;
         this.convertQueueFill = convertQueueFill;
         this.ioQueueFill = ioQueueFill;
         this.onDone = onDone;
+        this.onFail = onFail;
         this.parent = parent;
     }
 
@@ -81,6 +83,7 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
 
                 @Override public IProgressListener.ErrorHandleResult error(Throwable t) {
                     try {
+                        onFail.run();
                         CompletableFuture<ErrorHandleResult> future = new CompletableFuture<>();
                         EventQueue.invokeAndWait(() -> future.complete(showErrorMessage(t)));
                         return future.get();
@@ -92,6 +95,7 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
             });
         } catch (Throwable t) {
             t.printStackTrace();
+            onFail.run();
             return t;
         }
         return null;

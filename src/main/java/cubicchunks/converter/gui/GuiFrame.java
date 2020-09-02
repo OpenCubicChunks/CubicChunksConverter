@@ -24,6 +24,7 @@
 package cubicchunks.converter.gui;
 
 import cubicchunks.converter.lib.Registry;
+import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.WorldConverter;
 import cubicchunks.converter.lib.util.Utils;
 
@@ -38,6 +39,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class GuiFrame extends JFrame {
 
@@ -314,20 +316,45 @@ public class GuiFrame extends JFrame {
         this.outFormat = desc.getOut();
         this.converterName = desc.getConverterName();
 
-        WorldConverter<?, ?> converter = new WorldConverter<>(
-            Registry.getLevelConverter(inFormat, outFormat, converterName).apply(srcPath, dstPath),
-            Registry.getReader(inFormat).apply(srcPath),
-            Registry.getConverter(inFormat, outFormat, converterName).get(),
-            Registry.getWriter(outFormat).apply(dstPath)
-        );
-        ConverterWorker w = new ConverterWorker(converter, progressBar, convertFill, ioFill, () -> {
+        AtomicBoolean failed = new AtomicBoolean(false);
+
+        Runnable updateProgress = () -> {
             isConverting = false;
-            progressBar.setString("Done!");
+            progressBar.setString(failed.get() ? "Error" : "Done!");
             progressBar.setValue(0);
             convertFill.setValue(0);
             ioFill.setValue(0);
             updateConvertBtn();
-        }, this);
+        };
+
+        ChunkDataConverter<Object, Object> done;
+        try {
+            done = Registry.getConverter(inFormat, outFormat, converterName).apply(error -> {
+                JOptionPane.showMessageDialog(this, error, "Error", JOptionPane.ERROR_MESSAGE);
+                failed.set(true);
+            });
+        } catch (Exception ex) {
+            if (!failed.get()) {
+                throw ex;
+            } else {
+                // TODO: logging
+                ex.printStackTrace();
+                updateProgress.run();
+                return;
+            }
+        }
+        if (failed.get()) {
+            updateProgress.run();
+            return;
+        }
+        WorldConverter<?, ?> converter = new WorldConverter<>(
+            Registry.getLevelConverter(inFormat, outFormat, converterName).apply(srcPath, dstPath),
+            Registry.getReader(inFormat).apply(srcPath),
+            done,
+            Registry.getWriter(outFormat).apply(dstPath)
+        );
+
+        ConverterWorker w = new ConverterWorker(converter, progressBar, convertFill, ioFill, updateProgress, () -> failed.set(true), this);
         w.execute();
     }
 

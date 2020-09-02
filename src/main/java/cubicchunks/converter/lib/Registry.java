@@ -51,6 +51,7 @@ import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConvert
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -62,7 +63,7 @@ public class Registry {
     private static final BiMap<Class<?>, Function<Path, ? extends ChunkDataWriter<?>>> writersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
     private static final BiMap<StringTriple, Class<? extends ChunkDataConverter<?, ?>>> convertersByName = Maps.synchronizedBiMap(HashBiMap.create());
-    private static final BiMap<ClassTriple<?, ?, ?>, Supplier<? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
+    private static final BiMap<ClassTriple<?, ?, ?>, Function<Consumer<String>, ? extends ChunkDataConverter<?, ?>>> convertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
     private static final BiMap<ClassTriple<?, ?, ?>, BiFunction<Path, Path, ? extends LevelInfoConverter<?, ?>>> levelConvertersByClass = Maps.synchronizedBiMap(HashBiMap.create());
 
     static {
@@ -92,6 +93,14 @@ public class Registry {
     }
 
     public static <IN, OUT> void registerConverter(String name, Supplier<ChunkDataConverter<IN, OUT>> converterFactory,
+                                                   BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out,
+                                                   Class<? extends ChunkDataConverter<IN, OUT>> converter) {
+        convertersByName.put(new StringTriple(getReader(in), getWriter(out), name), converter);
+        convertersByClass.put(new ClassTriple<>(in, out, converter), errHandler -> converterFactory.get());
+        levelConvertersByClass.put(new ClassTriple<>(in, out, converter), levelConv);
+    }
+
+    public static <IN, OUT> void registerConverter(String name,  Function<Consumer<String>, ChunkDataConverter<IN, OUT>> converterFactory,
                                                    BiFunction<Path, Path, LevelInfoConverter<IN, OUT>> levelConv, Class<IN> in, Class<OUT> out,
                                                    Class<? extends ChunkDataConverter<IN, OUT>> converter) {
         convertersByName.put(new StringTriple(getReader(in), getWriter(out), name), converter);
@@ -136,13 +145,13 @@ public class Registry {
     }
 
     @SuppressWarnings("unchecked")
-    public static <IN, OUT> Supplier<ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName, String converterName) {
+    public static <IN, OUT> Function<Consumer<String>, ChunkDataConverter<IN, OUT>> getConverter(String inputName, String outputName, String converterName) {
         ClassTriple<IN, OUT, ChunkDataConverter<IN, OUT>> pair = new ClassTriple<>(
                 getReaderClass(inputName),
                 getWriterClass(outputName),
                 getConverterClass(new StringTriple(inputName, outputName, converterName))
         );
-        return (Supplier<ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
+        return (Function<Consumer<String>, ChunkDataConverter<IN, OUT>>) convertersByClass.get(pair);
     }
 
     @SuppressWarnings("unchecked")

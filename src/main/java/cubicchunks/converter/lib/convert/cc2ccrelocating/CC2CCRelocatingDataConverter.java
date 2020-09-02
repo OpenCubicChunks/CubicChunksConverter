@@ -38,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Consumer;
 
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
@@ -46,11 +47,16 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
     private final List<EditTask> relocateTasks;
 
-    public CC2CCRelocatingDataConverter() {
+    public CC2CCRelocatingDataConverter(Consumer<String> errorHandler) {
         try {
             relocateTasks = this.loadDataFromFile("relocatingConfig.txt");
         } catch (IOException e) {
-            throw new UncheckedIOException("relocatingConfig.txt doesn't exist!\n", e);
+            errorHandler.accept("Couldn't load relocatingConfig.txt, make sure the file exists: " + e.getLocalizedMessage());
+            throw new UncheckedIOException(e);
+        } catch (RuntimeException e) {
+            // TODO: better error messages, check for syntax errors when parsing
+            errorHandler.accept("Error loading relocatingConfig.txt: " + e);
+            throw e;
         }
     }
 
@@ -154,6 +160,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
     }
 
     @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
+        if(true)throw new RuntimeException();
         Map<Integer, ByteBuffer> cubes = input.getCubeData();
 
         Map<Integer, CompoundTag> oldCubeTags = new HashMap<>();
