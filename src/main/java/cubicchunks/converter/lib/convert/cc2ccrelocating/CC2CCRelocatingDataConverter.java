@@ -360,7 +360,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     tagMap.remove(vector2i);
                 continue;
             }
-            if(!modified && !this.isCubeInCopyOrPasteLoc(this.relocateTasks, cubeX, cubeY, cubeZ)) {
+            if(!modified && !isCubeInCopyOrPasteLoc(this.relocateTasks, cubeX, cubeY, cubeZ)) {
                 tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
             }
         }
