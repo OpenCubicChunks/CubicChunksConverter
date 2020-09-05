@@ -12,19 +12,11 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 public class Vector3iArgument implements ArgumentType<Vector3i> {
-
-//    private final Vector3i position;
-//
-//    public Vector3iArgument(int x, int y, int z) {
-//        this.position = new Vector3i(x, y, z);
-//    }
-//
-//    public Vector3i getPosition() {
-//        return position;
-//    }
-
     @Override
     public Vector3i parse(StringReader reader) throws CommandSyntaxException {
+        return parseVector(reader);
+    }
+    public static Vector3i parseVector(StringReader reader) throws CommandSyntaxException {
         int i = reader.getCursor();
         int locationpart = parseInt(reader);
         if (reader.canRead() && reader.peek() == ' ') {
