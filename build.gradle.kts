@@ -11,6 +11,9 @@ buildscript {
         maven {
             setUrl("https://plugins.gradle.org/m2/")
         }
+        maven {
+            setUrl("https://libraries.minecraft.net")
+        }
     }
     dependencies {
         classpath("org.ajoberstar:grgit:1.4.+")
@@ -75,6 +78,7 @@ dependencies {
     compile("io.github.opencubicchunks:regionlib:0.62.0-SNAPSHOT")
     compile("com.carrotsearch:hppc:0.8.1")
     compile("com.google.guava:guava:27.0.1-jre")
+    compile("com.mojang:brigadier:1.0.17")
     compile(project(":nbt"))
     testCompile("junit:junit:4.11")
 }

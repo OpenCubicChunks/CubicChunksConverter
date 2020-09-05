@@ -27,9 +27,12 @@ import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.ConverterConfig;
+import cubicchunks.converter.lib.conf.command.EditTaskCommands;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.BoundingBox;
+import cubicchunks.converter.lib.util.EditTask;
 import cubicchunks.converter.lib.util.Vector2i;
 import cubicchunks.converter.lib.util.Vector3i;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -72,130 +75,15 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
     private static List<EditTask> loadDataFromFile(String filename) throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(filename));
 
-        List<EditTask> tasks = new ArrayList<>();
-        for (String line : lines) {
+        EditTaskContext context = new EditTaskContext();
+        for(String line : lines) {
+            line = line.trim();
+            if(line.isEmpty() || line.startsWith("//") || line.startsWith("#")) continue;
 
-            String[] split = line.split(" ");
-
-            if(split.length <= 1) continue;
-
-            //This is the cut and paste format
-            //example: `mv 0 0 0 3 3 3 to 3 0 0`
-            //example: `cp 0 0 0 3 3 3 by 3 0 0`
-            EditTask.Type type = EditTask.Type.NONE;
-
-            switch (split[0]) {
-                case "ct": case "cut":
-                    type = EditTask.Type.CUT;
-                    break;
-                case "cp": case "copy":
-                    type = EditTask.Type.COPY;
-                    break;
-                case "mv": case "move":
-                    type = EditTask.Type.MOVE;
-                    break;
-                case "rm": case "remove":
-                    type = EditTask.Type.REMOVE;
-                    break;
-                case "kp": case "keep":
-                    type = EditTask.Type.KEEP;
-                    break;
-                default:
-                    LOGGER.warning("Unknown command: \"" + split[0] + "\"");
-
-            }
-            if(type == EditTask.Type.MOVE || type == EditTask.Type.COPY) {
-                BoundingBox srcBox = new BoundingBox(
-                        Integer.parseInt(split[1]),
-                        Integer.parseInt(split[2]),
-                        Integer.parseInt(split[3]),
-                        Integer.parseInt(split[4]),
-                        Integer.parseInt(split[5]),
-                        Integer.parseInt(split[6])
-                );
-                Vector3i offsetPos;
-                if (split[7].equals("to")) {
-                    offsetPos = new Vector3i(
-                        Integer.parseInt(split[8]) - srcBox.getMinPos().getX(),
-                        Integer.parseInt(split[9]) - srcBox.getMinPos().getY(),
-                        Integer.parseInt(split[10]) - srcBox.getMinPos().getZ()
-                    );
-                } else if (split[7].equals("by")) {
-                    offsetPos = new Vector3i(
-                        Integer.parseInt(split[8]),
-                        Integer.parseInt(split[9]),
-                        Integer.parseInt(split[10])
-                    );
-                } else {
-                    throw new UnsupportedOperationException("Please use commands \"to\" or \"by\", not \"" + split[7] + "\".");
-                }
-                tasks.add(new EditTask(srcBox, offsetPos, type));
-            } else if(type == EditTask.Type.REMOVE || type == EditTask.Type.KEEP) {
-                BoundingBox srcBox;
-                if(split[1].equals("all")) {
-                    srcBox = new BoundingBox(
-                            Integer.MIN_VALUE,
-                            Integer.MIN_VALUE,
-                            Integer.MIN_VALUE,
-                            Integer.MAX_VALUE,
-                            Integer.MAX_VALUE,
-                            Integer.MAX_VALUE
-                    );
-                } else {
-                    srcBox = new BoundingBox(
-                            Integer.parseInt(split[1]),
-                            Integer.parseInt(split[2]),
-                            Integer.parseInt(split[3]),
-                            Integer.parseInt(split[4]),
-                            Integer.parseInt(split[5]),
-                            Integer.parseInt(split[6])
-                    );
-                }
-
-                tasks.add(new EditTask(srcBox, type == EditTask.Type.KEEP ? new Vector3i(0, 0, 0) : null, type));
-            } else if(type == EditTask.Type.CUT) {
-                BoundingBox srcBox;
-                if(split[1].equals("all")) {
-                    srcBox = new BoundingBox(
-                            Integer.MIN_VALUE,
-                            Integer.MIN_VALUE,
-                            Integer.MIN_VALUE,
-                            Integer.MAX_VALUE,
-                            Integer.MAX_VALUE,
-                            Integer.MAX_VALUE
-                    );
-                } else {
-                    srcBox = new BoundingBox(
-                            Integer.parseInt(split[1]),
-                            Integer.parseInt(split[2]),
-                            Integer.parseInt(split[3]),
-                            Integer.parseInt(split[4]),
-                            Integer.parseInt(split[5]),
-                            Integer.parseInt(split[6])
-                    );
-                }
-                Vector3i offsetPos = null;
-                if(split.length > 7) {
-                    if (split[7].equals("to")) {
-                        offsetPos = new Vector3i(
-                                Integer.parseInt(split[8]) - srcBox.getMinPos().getX(),
-                                Integer.parseInt(split[9]) - srcBox.getMinPos().getY(),
-                                Integer.parseInt(split[10]) - srcBox.getMinPos().getZ()
-                        );
-                    } else if (split[7].equals("by")) {
-                        offsetPos = new Vector3i(
-                                Integer.parseInt(split[8]),
-                                Integer.parseInt(split[9]),
-                                Integer.parseInt(split[10])
-                        );
-                    } else {
-                        throw new UnsupportedOperationException("Please use commands \"to\" or \"by\", not \"" + split[7] + "\".");
-                    }
-                }
-                tasks.add(new EditTask(srcBox, offsetPos, type));
-            }
+            EditTaskCommands.handleCommand(context, line);
         }
-        return tasks;
+
+        return context.getTasks();
     }
 
     @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
@@ -408,32 +296,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 return true;
         }
         return false;
-    }
-
-    public static final class EditTask {
-        private final BoundingBox source;
-        private final Vector3i offset;
-
-        public enum Type { NONE, CUT, COPY, MOVE, REMOVE, KEEP }
-        private final Type type;
-
-        public EditTask(BoundingBox src, Vector3i offset, Type type) {
-            this.source = src;
-            this.offset = offset;
-            this.type = type;
-        }
-
-        public BoundingBox getSourceBox() {
-            return this.source;
-        }
-
-        public Vector3i getOffset() {
-            return this.offset;
-        }
-
-        public Type getType() {
-            return this.type;
-        }
     }
 
 }

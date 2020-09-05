@@ -29,7 +29,6 @@ import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
-import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.regionlib.api.region.IRegionProvider;
@@ -76,8 +75,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
         loadThread = Thread.currentThread();
         if(config.hasValue("relocations")) {
             this.regionBoundingBoxes = new ArrayList<>();
-            @SuppressWarnings("unchecked") List<CC2CCRelocatingDataConverter.EditTask> tasks = (List<CC2CCRelocatingDataConverter.EditTask>) config.getValue("relocations");
-            for (CC2CCRelocatingDataConverter.EditTask task : tasks) {
+            @SuppressWarnings("unchecked") List<EditTask> tasks = (List<EditTask>) config.getValue("relocations");
+            for (EditTask task : tasks) {
                 regionBoundingBoxes.add(task.getSourceBox().asRegionCoords(new Vector3i(16, 16, 16)));
                 if (task.getOffset() != null) {
                     regionBoundingBoxes.add(task.getSourceBox().add(task.getOffset()).asRegionCoords(new Vector3i(16, 16, 16)));

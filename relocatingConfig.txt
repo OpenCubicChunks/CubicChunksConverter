@@ -1,15 +1,17 @@
-//kp all
+keep all
 
-//ct all
-ct 0 0 0 1 1 1
-ct 1 0 0 1 1 1 to 5 0 0
-ct 2 0 0 1 1 1 by 5 0 0
+cut all
+cut all 0 1 2
+cut 0 0 0 1 1 1
+cut 1 0 0 1 1 1 to 5 0 0
+cut 2 0 0 1 1 1 by 5 0 0
 
-cp 1 0 0 1 1 1 to 5 0 0
-cp 2 0 0 1 1 1 by 5 0 0
+cut all by 1 2 5
+copy 1 0 0 1 1 1 to 5 0 0
+copy 2 0 0 1 1 1 by 5 0 0
 
-mv 1 0 0 1 1 1 to 5 0 0
-mv 2 0 0 1 1 1 by 5 0 0
+move 1 0 0 1 1 1 to 5 0 0
+move 2 0 0 1 1 1 by 5 0 0
 
-//rm all
-rm 1 0 0 1 1 1
+rm all
+remove 1 0 0 1 1 1
