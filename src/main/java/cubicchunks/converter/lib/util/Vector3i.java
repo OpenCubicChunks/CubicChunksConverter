@@ -25,7 +25,7 @@ package cubicchunks.converter.lib.util;
 
 import java.util.Objects;
 
-public final class Vector3i {
+public class Vector3i {
     public static final Vector3i MIN_VECTOR = new Vector3i(Integer.MIN_VALUE / 2, Integer.MIN_VALUE / 2, Integer.MIN_VALUE / 2);
     public static final Vector3i MAX_VECTOR = new Vector3i(Integer.MAX_VALUE / 2, Integer.MAX_VALUE / 2, Integer.MAX_VALUE / 2);
 

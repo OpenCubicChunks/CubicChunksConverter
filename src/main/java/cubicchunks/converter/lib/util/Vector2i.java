@@ -23,11 +23,9 @@
  */
 package cubicchunks.converter.lib.util;
 
-import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
-
 import java.util.Objects;
 
-public final class Vector2i {
+public class Vector2i {
     private final int x;
     private final int y;
 
