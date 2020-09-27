@@ -21,42 +21,21 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter;
+package cubicchunks.converter.gui;
 
-import cubicchunks.converter.gui.GuiFrame;
-import cubicchunks.converter.headless.ConverterHeadless;
+import cubicchunks.converter.headless.HeadlessMain;
 
 import java.awt.EventQueue;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.awt.GraphicsEnvironment;
 
-public class Converter {
+public class GuiMain {
 
-    public static void main(String... args) throws InterruptedException {
-        boolean isHeadless = false;
-        boolean acceptingCommands = false;
-
-        List<String> commands = new ArrayList<>();
-
-        for(String arg : args) {
-            if(acceptingCommands) {
-                commands.add(arg);
-            }
-            else if (arg.equals("--headless"))
-                isHeadless = true;
-            else if (arg.equals("--"))
-                acceptingCommands = true;
+    public static void main(String[] args) throws InterruptedException {
+        if ((args.length > 0 && args[0].equals("--headless")) || GraphicsEnvironment.isHeadless()) {
+            HeadlessMain.main(args);
+            return;
         }
-        if (isHeadless) {
-            if(commands.isEmpty())
-                ConverterHeadless.convert();
-            else
-                ConverterHeadless.convert(commands);
-        } else {
-            EventQueue.invokeLater(() -> new GuiFrame().init());
-            Thread.sleep(Long.MAX_VALUE);
-        }
+        EventQueue.invokeLater(() -> new GuiFrame().init());
+        Thread.sleep(Long.MAX_VALUE);
     }
 }

@@ -85,7 +85,7 @@ dependencies {
 
 jar.apply {
     manifest.apply {
-        attributes["Main-Class"] = "cubicchunks.converter.Converter"
+        attributes["Main-Class"] = "cubicchunks.converter.gui.GuiMain"
     }
 }
 /*
@@ -98,8 +98,25 @@ val sourcesJar by tasks.creating(Jar::class) {
     from(sourceSets["main"].java.srcDirs)
 }
 
+val headlessJar by tasks.creating(Jar::class) {
+    classifier = "headless"
+    from(sourceSets["main"].java.srcDirs)
+    exclude("cubicchunks/converter/gui/**/*")
+    manifest.apply {
+        attributes["Main-Class"] = "cubicchunks.converter.headless.HeadlessMain"
+    }
+}
 
-tasks["build"].dependsOn(shadowJar)
+val headlessShadowJar by tasks.creating(ShadowJar::class) {
+    dependsOn(headlessJar)
+    manifest.inheritFrom(headlessJar.manifest)
+    from(java.sourceSets["main"].output)
+    configurations.add(project.configurations.runtime)
+    exclude("META-INF/INDEX.LIST", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "cubicchunks/converter/gui/**/*")
+    classifier = "headless-all"
+}
+
+tasks["build"].dependsOn(shadowJar, headlessShadowJar)
 
 val signing: SigningExtension by extensions
 signing.apply {
@@ -179,7 +196,7 @@ uploadArchives.apply {
 // tasks must be before artifacts, don't change the order
 artifacts {
     withGroovyBuilder {
-        "archives"(tasks["jar"], shadowJar, sourcesJar)
+        "archives"(jar, shadowJar, headlessJar, headlessShadowJar, sourcesJar)
     }
 }
 

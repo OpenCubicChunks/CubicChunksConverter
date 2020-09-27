@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-public class ConverterHeadless {
+public class HeadlessConverter {
 
     public static void convert() {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
@@ -101,7 +101,7 @@ public class ConverterHeadless {
             Registry.getWriter(context.getOutFormat()).apply(context.getDstWorld())
         );
 
-        HeadlessWorker w = new HeadlessWorker(converter, ConverterHeadless::done, () -> failed.set(true));
+        HeadlessWorker w = new HeadlessWorker(converter, HeadlessConverter::done, () -> failed.set(true));
         try {
             w.convert();
         } catch (IOException e) {
