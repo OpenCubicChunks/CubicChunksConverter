@@ -21,15 +21,29 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.gui;
+package cubicchunks.converter;
+
+import cubicchunks.converter.gui.GuiFrame;
+import cubicchunks.converter.headless.ConverterHeadless;
 
 import java.awt.EventQueue;
 import java.io.IOException;
+import java.nio.file.Paths;
 
-public class ConverterGui {
+public class Converter {
 
     public static void main(String... args) throws InterruptedException {
-        EventQueue.invokeLater(() -> new GuiFrame().init());
-        Thread.sleep(Long.MAX_VALUE);
+        boolean isHeadless = false;
+        for(String arg : args) {
+            if(arg.equals("--headless")) {
+                isHeadless = true;
+            }
+        }
+        if(isHeadless) {
+            EventQueue.invokeLater(() -> new ConverterHeadless(Paths.get("/home/tom/.minecraft/saves/New World"), Paths.get("/home/tom/.minecraft/saves/New World - Anvil"), "CubicChunks", "Anvil", "Default"));
+        } else {
+            EventQueue.invokeLater(() -> new GuiFrame().init());
+            Thread.sleep(Long.MAX_VALUE);
+        }
     }
 }

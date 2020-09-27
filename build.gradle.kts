@@ -85,7 +85,7 @@ dependencies {
 
 jar.apply {
     manifest.apply {
-        attributes["Main-Class"] = "cubicchunks.converter.gui.ConverterGui"
+        attributes["Main-Class"] = "cubicchunks.converter.Converter"
     }
 }
 /*
