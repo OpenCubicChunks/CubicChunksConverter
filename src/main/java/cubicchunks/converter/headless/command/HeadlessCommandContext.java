@@ -21,30 +21,55 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter;
+package cubicchunks.converter.headless.command;
 
-import cubicchunks.converter.gui.GuiFrame;
-import cubicchunks.converter.headless.ConverterHeadless;
+import java.nio.file.Path;
 
-import java.awt.EventQueue;
-import java.io.IOException;
-import java.nio.file.Paths;
+public class HeadlessCommandContext {
+    private Path srcWorld;
+    private Path dstWorld;
 
-public class Converter {
+    private String inFormat;
+    private String outFormat;
+    private String converterName = "Default";
 
-    public static void main(String... args) throws InterruptedException {
-        boolean isHeadless = false;
-        for(String arg : args) {
-            if (arg.equals("--headless")) {
-                isHeadless = true;
-                break;
-            }
-        }
-        if(isHeadless) {
-            EventQueue.invokeLater(() -> new ConverterHeadless(Paths.get("/home/tom/.minecraft/saves/New World"), Paths.get("/home/tom/.minecraft/saves/New World - Anvil"), "CubicChunks", "Anvil", "Default"));
-        } else {
-            EventQueue.invokeLater(() -> new GuiFrame().init());
-            Thread.sleep(Long.MAX_VALUE);
-        }
+    public Path getSrcWorld() {
+        return srcWorld;
+    }
+
+    public void setSrcWorld(Path srcWorld) {
+        this.srcWorld = srcWorld;
+    }
+
+    public Path getDstWorld() {
+        return dstWorld;
+    }
+
+    public void setDstWorld(Path dstWorld) {
+        this.dstWorld = dstWorld;
+    }
+
+    public String getInFormat() {
+        return inFormat;
+    }
+
+    public void setInFormat(String inFormat) {
+        this.inFormat = inFormat;
+    }
+
+    public String getOutFormat() {
+        return outFormat;
+    }
+
+    public void setOutFormat(String outFormat) {
+        this.outFormat = outFormat;
+    }
+
+    public String getConverterName() {
+        return converterName;
+    }
+
+    public void setConverterName(String converterName) {
+        this.converterName = converterName;
     }
 }

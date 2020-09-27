@@ -21,30 +21,25 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter;
+package cubicchunks.converter.headless.command.commands;
 
-import cubicchunks.converter.gui.GuiFrame;
-import cubicchunks.converter.headless.ConverterHeadless;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import cubicchunks.converter.headless.command.HeadlessCommandContext;
 
-import java.awt.EventQueue;
-import java.io.IOException;
 import java.nio.file.Paths;
 
-public class Converter {
-
-    public static void main(String... args) throws InterruptedException {
-        boolean isHeadless = false;
-        for(String arg : args) {
-            if (arg.equals("--headless")) {
-                isHeadless = true;
-                break;
-            }
-        }
-        if(isHeadless) {
-            EventQueue.invokeLater(() -> new ConverterHeadless(Paths.get("/home/tom/.minecraft/saves/New World"), Paths.get("/home/tom/.minecraft/saves/New World - Anvil"), "CubicChunks", "Anvil", "Default"));
-        } else {
-            EventQueue.invokeLater(() -> new GuiFrame().init());
-            Thread.sleep(Long.MAX_VALUE);
-        }
+public class DestinationWorldCommand {
+    public static void register(CommandDispatcher<HeadlessCommandContext> dispatcher) {
+        dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("dstWorld")
+            .then(RequiredArgumentBuilder.<HeadlessCommandContext, String>argument("dst", StringArgumentType.string())
+                .executes((context) -> {
+                    context.getSource().setDstWorld(Paths.get(context.getArgument("dst", String.class)));
+                    return 1;
+                })
+            )
+        );
     }
 }

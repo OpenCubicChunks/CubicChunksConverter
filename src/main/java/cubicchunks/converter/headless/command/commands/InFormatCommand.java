@@ -21,30 +21,31 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter;
+package cubicchunks.converter.headless.command.commands;
 
-import cubicchunks.converter.gui.GuiFrame;
-import cubicchunks.converter.headless.ConverterHeadless;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import cubicchunks.converter.headless.command.HeadlessCommandContext;
 
-import java.awt.EventQueue;
-import java.io.IOException;
-import java.nio.file.Paths;
-
-public class Converter {
-
-    public static void main(String... args) throws InterruptedException {
-        boolean isHeadless = false;
-        for(String arg : args) {
-            if (arg.equals("--headless")) {
-                isHeadless = true;
-                break;
-            }
-        }
-        if(isHeadless) {
-            EventQueue.invokeLater(() -> new ConverterHeadless(Paths.get("/home/tom/.minecraft/saves/New World"), Paths.get("/home/tom/.minecraft/saves/New World - Anvil"), "CubicChunks", "Anvil", "Default"));
-        } else {
-            EventQueue.invokeLater(() -> new GuiFrame().init());
-            Thread.sleep(Long.MAX_VALUE);
-        }
+public class InFormatCommand {
+    public static void register(CommandDispatcher<HeadlessCommandContext> dispatcher) {
+        dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("inFormat")
+            .then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Anvil")
+                .executes((context) -> {
+                    context.getSource().setInFormat("Anvil");
+                    return 1;
+                })
+            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("CubicChunks")
+                .executes((context) -> {
+                    context.getSource().setInFormat("CubicChunks");
+                    return 1;
+                })
+            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("RobintonCubicChunks")
+                .executes((context) -> {
+                    context.getSource().setInFormat("RobintonCubicChunks");
+                    return 1;
+                })
+            )
+        );
     }
 }

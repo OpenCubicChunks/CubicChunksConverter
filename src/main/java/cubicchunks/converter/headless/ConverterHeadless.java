@@ -23,10 +23,15 @@
  */
 package cubicchunks.converter.headless;
 
+import cubicchunks.converter.headless.command.HeadlessCommandContext;
+import cubicchunks.converter.headless.command.HeadlessCommands;
 import cubicchunks.converter.lib.Registry;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.WorldConverter;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,11 +66,25 @@ public class ConverterHeadless {
             }
         }
 
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        HeadlessCommandContext context = new HeadlessCommandContext();
+        while(true) {
+            if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null) {
+                try {
+                    String line = br.readLine();
+                    HeadlessCommands.handleCommand(context, line);
+                } catch (IOException e) {
+                    //log and ignore
+                }
+            } else
+                break;
+        }
+
         WorldConverter<?, ?> converter = new WorldConverter<>(
-            Registry.getLevelConverter(inFormat, outFormat, converterName).apply(srcPath, dstPath),
-            Registry.getReader(inFormat).apply(srcPath, conf),
-            Registry.getConverter(inFormat, outFormat, converterName).apply(conf),
-            Registry.getWriter(outFormat).apply(dstPath)
+            Registry.getLevelConverter(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(context.getSrcWorld(), context.getDstWorld()),
+            Registry.getReader(context.getInFormat()).apply(context.getSrcWorld(), conf),
+            Registry.getConverter(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(conf),
+            Registry.getWriter(context.getOutFormat()).apply(context.getDstWorld())
         );
 
         HeadlessWorker w = new HeadlessWorker(converter, this::ConversionFinished, () -> failed.set(true));
