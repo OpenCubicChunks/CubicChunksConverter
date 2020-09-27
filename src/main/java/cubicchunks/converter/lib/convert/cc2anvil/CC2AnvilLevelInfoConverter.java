@@ -35,8 +35,6 @@ import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,8 +52,8 @@ public class CC2AnvilLevelInfoConverter implements LevelInfoConverter<CubicChunk
     @Override public void convert() throws IOException {
         Utils.forEachDirectory(dstPath, dir -> {
             CompoundTag root;
-            try (NBTInputStream nbtIn = new NBTInputStream(new FileInputStream(srcPath.resolve("level.dat").toFile()));
-                NBTOutputStream nbtOut = new NBTOutputStream(new FileOutputStream(dir.resolve("level.dat").toFile()))) {
+            try (NBTInputStream nbtIn = new NBTInputStream(Files.newInputStream(srcPath.resolve("level.dat")));
+                NBTOutputStream nbtOut = new NBTOutputStream(Files.newOutputStream(dir.resolve("level.dat")))) {
                 root = (CompoundTag) nbtIn.readTag();
 
                 CompoundMap newRoot = new CompoundMap();
