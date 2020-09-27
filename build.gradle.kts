@@ -101,7 +101,7 @@ val sourcesJar by tasks.creating(Jar::class) {
 val headlessJar by tasks.creating(Jar::class) {
     classifier = "headless"
     from(sourceSets["main"].java.srcDirs)
-    exclude("cubicchunks/converter/gui/**/*")
+    exclude("cubicchunks/converter/gui")
     manifest.apply {
         attributes["Main-Class"] = "cubicchunks.converter.headless.HeadlessMain"
     }
@@ -112,7 +112,7 @@ val headlessShadowJar by tasks.creating(ShadowJar::class) {
     manifest.inheritFrom(headlessJar.manifest)
     from(java.sourceSets["main"].output)
     configurations.add(project.configurations.runtime)
-    exclude("META-INF/INDEX.LIST", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "cubicchunks/converter/gui/**/*")
+    exclude("META-INF/INDEX.LIST", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "cubicchunks/converter/gui")
     classifier = "headless-all"
 }
 
