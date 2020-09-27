@@ -43,7 +43,6 @@ public class Converter {
         for(String arg : args) {
             if(acceptingCommands) {
                 commands.add(arg);
-                System.out.println("\"" + arg + "\"");
             }
             else if (arg.equals("--headless"))
                 isHeadless = true;

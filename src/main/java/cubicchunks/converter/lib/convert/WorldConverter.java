@@ -67,10 +67,6 @@ public class WorldConverter<IN, OUT> {
         this.converter = converter;
         this.writer = writer;
 
-        System.out.println(reader);
-        System.out.println(converter);
-        System.out.println(writer);
-
         RejectedExecutionHandler handler = ((r, executor) -> {
             try {
                 if (!executor.isShutdown()) {

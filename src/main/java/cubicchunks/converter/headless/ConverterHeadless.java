@@ -47,7 +47,6 @@ public class ConverterHeadless {
             if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null) {
                 try {
                     String line = br.readLine();
-                    System.out.println("\"" + line + "\"");
                     HeadlessCommands.handleCommand(context, line);
                 } catch (IOException e) {
                     throw new Error(e);
@@ -70,8 +69,6 @@ public class ConverterHeadless {
     }
 
     private static void convert(HeadlessCommandContext context) {
-        System.out.println(context);
-
         AtomicBoolean failed = new AtomicBoolean(false);
         Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoader(context.getInFormat(), context.getOutFormat(), context.getConverterName());
         ConverterConfig conf = new ConverterConfig(new HashMap<>());
