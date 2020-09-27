@@ -32,17 +32,48 @@ import cubicchunks.converter.lib.convert.WorldConverter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class ConverterHeadless {
-    public ConverterHeadless(Path srcPath, Path dstPath, String inFormat, String outFormat, String converterName) {
-        AtomicBoolean failed = new AtomicBoolean(false);
 
-        Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoader(inFormat, outFormat, converterName);
+    public static void convert() {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        HeadlessCommandContext context = new HeadlessCommandContext();
+        while(true) {
+            if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null) {
+                try {
+                    String line = br.readLine();
+                    System.out.println("\"" + line + "\"");
+                    HeadlessCommands.handleCommand(context, line);
+                } catch (IOException e) {
+                    throw new Error(e);
+                }
+            } else
+                break;
+        }
+        convert(context);
+    }
+
+    public static void convert(List<String> commands) {
+        HeadlessCommandContext context = new HeadlessCommandContext();
+        for (String command : commands) {
+            String line = command;
+            HeadlessCommands.handleCommand(context, line);
+        }
+        if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null)
+            throw new IllegalStateException("Incomplete arguments!\n" + context);
+        convert(context);
+    }
+
+    private static void convert(HeadlessCommandContext context) {
+        System.out.println(context);
+
+        AtomicBoolean failed = new AtomicBoolean(false);
+        Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoader(context.getInFormat(), context.getOutFormat(), context.getConverterName());
         ConverterConfig conf = new ConverterConfig(new HashMap<>());
         if (configLoader != null) {
             try {
@@ -66,20 +97,6 @@ public class ConverterHeadless {
             }
         }
 
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-        HeadlessCommandContext context = new HeadlessCommandContext();
-        while(true) {
-            if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null) {
-                try {
-                    String line = br.readLine();
-                    HeadlessCommands.handleCommand(context, line);
-                } catch (IOException e) {
-                    //log and ignore
-                }
-            } else
-                break;
-        }
-
         WorldConverter<?, ?> converter = new WorldConverter<>(
             Registry.getLevelConverter(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(context.getSrcWorld(), context.getDstWorld()),
             Registry.getReader(context.getInFormat()).apply(context.getSrcWorld(), conf),
@@ -87,11 +104,16 @@ public class ConverterHeadless {
             Registry.getWriter(context.getOutFormat()).apply(context.getDstWorld())
         );
 
-        HeadlessWorker w = new HeadlessWorker(converter, this::ConversionFinished, () -> failed.set(true));
-        w.execute();
+        HeadlessWorker w = new HeadlessWorker(converter, ConverterHeadless::done, () -> failed.set(true));
+        try {
+            w.convert();
+        } catch (IOException e) {
+            failed.set(true);
+            e.printStackTrace();
+        }
     }
 
-    private void ConversionFinished() {
+    private static void done() {
 
     }
 }

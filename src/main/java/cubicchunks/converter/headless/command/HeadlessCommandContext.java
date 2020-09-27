@@ -72,4 +72,15 @@ public class HeadlessCommandContext {
     public void setConverterName(String converterName) {
         this.converterName = converterName;
     }
+
+    @Override
+    public String toString() {
+        return "HeadlessCommandContext{" +
+            "srcWorld=" + srcWorld +
+            ", dstWorld=" + dstWorld +
+            ", inFormat='" + inFormat + '\'' +
+            ", outFormat='" + outFormat + '\'' +
+            ", converterName='" + converterName + '\'' +
+            '}';
+    }
 }

@@ -32,12 +32,12 @@ public class OutFormatCommand {
         dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("outFormat")
             .then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Anvil")
                 .executes((context) -> {
-                    context.getSource().setInFormat("Anvil");
+                    context.getSource().setOutFormat("Anvil");
                     return 1;
                 })
             ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("CubicChunks")
                 .executes((context) -> {
-                    context.getSource().setInFormat("CubicChunks");
+                    context.getSource().setOutFormat("CubicChunks");
                     return 1;
                 })
             )

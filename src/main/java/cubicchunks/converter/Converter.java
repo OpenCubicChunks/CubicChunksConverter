@@ -29,19 +29,32 @@ import cubicchunks.converter.headless.ConverterHeadless;
 import java.awt.EventQueue;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Converter {
 
     public static void main(String... args) throws InterruptedException {
         boolean isHeadless = false;
+        boolean acceptingCommands = false;
+
+        List<String> commands = new ArrayList<>();
+
         for(String arg : args) {
-            if (arg.equals("--headless")) {
-                isHeadless = true;
-                break;
+            if(acceptingCommands) {
+                commands.add(arg);
+                System.out.println("\"" + arg + "\"");
             }
+            else if (arg.equals("--headless"))
+                isHeadless = true;
+            else if (arg.equals("--"))
+                acceptingCommands = true;
         }
-        if(isHeadless) {
-            EventQueue.invokeLater(() -> new ConverterHeadless(Paths.get("/home/tom/.minecraft/saves/New World"), Paths.get("/home/tom/.minecraft/saves/New World - Anvil"), "CubicChunks", "Anvil", "Default"));
+        if (isHeadless) {
+            if(commands.isEmpty())
+                ConverterHeadless.convert();
+            else
+                ConverterHeadless.convert(commands);
         } else {
             EventQueue.invokeLater(() -> new GuiFrame().init());
             Thread.sleep(Long.MAX_VALUE);

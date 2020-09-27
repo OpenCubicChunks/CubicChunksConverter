@@ -67,6 +67,10 @@ public class WorldConverter<IN, OUT> {
         this.converter = converter;
         this.writer = writer;
 
+        System.out.println(reader);
+        System.out.println(converter);
+        System.out.println(writer);
+
         RejectedExecutionHandler handler = ((r, executor) -> {
             try {
                 if (!executor.isShutdown()) {
@@ -188,7 +192,7 @@ public class WorldConverter<IN, OUT> {
                 reader.countInputChunks(() -> {
                     int v = chunkCount.getAndIncrement();
                     if ((v & 255) == 0) {
-                        progress.update(null);
+                        progress.update();
                     }
                 });
             } catch (IOException e) {
@@ -250,7 +254,7 @@ public class WorldConverter<IN, OUT> {
                 Set<OUT> converted_arr = converter.convert(toConvert);
                 for(OUT converted : converted_arr) {
                     IOWriteTask<OUT> data = new IOWriteTask<>(converted, writer, worldConv, progress);
-                    progress.update(null);
+                    progress.update();
                     ioExecutor.submit(data);
                 }
             } catch (Throwable t) {

@@ -77,8 +77,8 @@ public class ConverterWorker extends SwingWorker<Throwable, Void> {
     @Override protected Throwable doInBackground() {
         try {
             this.converter.convert(new IProgressListener() {
-                @Override public void update(Void progress) {
-                    publish(progress);
+                @Override public void update() {
+                    publish();
                 }
 
                 @Override public IProgressListener.ErrorHandleResult error(Throwable t) {

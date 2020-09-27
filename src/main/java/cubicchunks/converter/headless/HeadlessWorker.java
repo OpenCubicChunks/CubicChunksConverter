@@ -29,19 +29,19 @@ import cubicchunks.converter.lib.convert.WorldConverter;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
-public class HeadlessWorker extends SwingWorker<Throwable, Void> {
+public class HeadlessWorker {
     private final WorldConverter converter;
     private final Runnable onFail;
     private Runnable onDone;
+
+    private long lastProcessTime = System.currentTimeMillis();
 
     private static final Logger LOGGER = Logger.getLogger(EditTaskCommands.class.getSimpleName());
 
@@ -51,64 +51,58 @@ public class HeadlessWorker extends SwingWorker<Throwable, Void> {
         this.onFail = onFail;
     }
 
-    @Override protected Throwable doInBackground() {
-        try {
-            this.converter.convert(new IProgressListener() {
-                @Override public void update(Void progress) {
-                    publish(progress);
+    protected void convert() throws IOException {
+        this.converter.convert(new IProgressListener() {
+            @Override public void update() {
+                if(System.currentTimeMillis() - lastProcessTime > 300) {
+                    process();
+                    lastProcessTime = System.currentTimeMillis();
                 }
+            }
 
-                @Override public IProgressListener.ErrorHandleResult error(Throwable t) {
-                    try {
-                        onFail.run();
-                        CompletableFuture<ErrorHandleResult> future = new CompletableFuture<>();
-                        EventQueue.invokeAndWait(() -> future.complete(showErrorMessage(t)));
-                        return future.get();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return ErrorHandleResult.STOP_KEEP_DATA;
-                    }
+            @Override public IProgressListener.ErrorHandleResult error(Throwable t) {
+                try {
+                    onFail.run();
+                    return showErrorMessage(t);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return ErrorHandleResult.STOP_KEEP_DATA;
                 }
-            });
-        } catch (Throwable t) {
-            t.printStackTrace();
-            onFail.run();
-            return t;
-        }
-        return null;
+            }
+        });
+        onDone.run();
     }
 
     private IProgressListener.ErrorHandleResult showErrorMessage(Throwable error) {
-        String[] options = {"Ignore", "Ignore all", "Stop, delete results", "Stop, keep result"};
-
         LOGGER.info(exceptionString(error));
-        LOGGER.info("An error occurred while converting chunks. Do you want to continue?");
+        System.err.println("An error occurred while converting chunks. Do you want to continue?\n(I)gnore/ignore (A)ll/cancel and (K)eep results/cancel and (D)elete results");
 
-//            int code = JOptionPane.showOptionDialog(
-//                parent,
-//                infoPanel,
-//                "An error occurred while converting chunks", 0, JOptionPane.ERROR_MESSAGE,
-//                null, options, "Ignore");
-        int code = 0; //askUserForDecision();
-        if (code == JOptionPane.CLOSED_OPTION) {
-            return IProgressListener.ErrorHandleResult.IGNORE;
-        }
-        switch (code) {
-            case 0:
-                return IProgressListener.ErrorHandleResult.IGNORE;
-            case 1:
-                return IProgressListener.ErrorHandleResult.IGNORE_ALL;
-            case 2:
-                return IProgressListener.ErrorHandleResult.STOP_DISCARD;
-            case 3:
-                return IProgressListener.ErrorHandleResult.STOP_KEEP_DATA;
-            default:
-                assert false;
-                return IProgressListener.ErrorHandleResult.IGNORE;
+        IProgressListener.ErrorHandleResult code = IProgressListener.ErrorHandleResult.IGNORE;
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        while(true) {
+            try {
+                String line = reader.readLine();
+                if(!line.equals("")) {
+                    char c = line.toUpperCase().charAt(0);
+                        switch (c) {
+                            case 'I':
+                                return IProgressListener.ErrorHandleResult.IGNORE;
+                            case 'A':
+                                return IProgressListener.ErrorHandleResult.IGNORE_ALL;
+                            case 'K':
+                                return IProgressListener.ErrorHandleResult.STOP_KEEP_DATA;
+                            case 'D':
+                                return IProgressListener.ErrorHandleResult.STOP_DISCARD;
+                        }
+                }
+            } catch (IOException e) {
+                throw new Error(e);
+            }
         }
     }
 
-    @Override protected void process(List<Void> l) {
+    protected void process() {
         int submitted = converter.getSubmittedChunks();
         int total = converter.getTotalChunks();
         double progress = 100 * submitted / (float) total;
@@ -123,21 +117,6 @@ public class HeadlessWorker extends SwingWorker<Throwable, Void> {
         String messageWrite = String.format("IO queue fill: %d/%d", size, maxSize);
 
         System.out.println(messageRead + "\n" + messageConvert + "\n" + messageWrite);
-    }
-
-    @Override
-    protected void done() {
-        onDone.run();
-        Throwable t;
-        try {
-            t = get();
-        } catch (InterruptedException | ExecutionException e) {
-            t = e;
-        }
-        if (t == null) {
-            return;
-        }
-        JOptionPane.showMessageDialog(null, exceptionString(t));
     }
 
     private static String exceptionString(Throwable t) {
