@@ -143,11 +143,13 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 EntryLocation2D location = new EntryLocation2D(entry.getKey().getX(), entry.getKey().getY());
                 columnData.add(new CubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue())));
             }
-            for (Map.Entry<Integer, ByteBuffer> entry : keepOnlyCubes.entrySet()) {
-                Map<Integer, ByteBuffer> map = new HashMap<>();
-                map.put(entry.getKey(), entry.getValue());
-
-                columnData.add(new CubicChunksColumnData(input.getDimension(), input.getPosition(), input.getColumnData(), map));
+            if (!keepOnlyCubes.isEmpty()) {
+                CubicChunksColumnData currentColumnData = columnData.stream()
+                        .filter(x -> x.getPosition().equals(input.getPosition()))
+                        .findAny()
+                        .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), input.getPosition(), input.getColumnData(), new HashMap<>()));
+                currentColumnData.getCubeData().putAll(keepOnlyCubes);
+                columnData.add(currentColumnData);
             }
 
             return columnData;
