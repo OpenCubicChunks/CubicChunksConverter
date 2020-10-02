@@ -250,30 +250,35 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     tagMap.remove(vector2i);
                 continue;
             }
-            if(!modified && !isCubeInCopyOrPasteLoc(this.relocateTasks, cubeX, cubeY, cubeZ)) {
+            if(!modified && !isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
                 tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
             }
         }
 
         return tagMap;
     }
-    //Returns true if cube data is going to be used for copy
-    private static boolean isCubeInCopyOrPasteLoc(List<EditTask> tasks, int x, int y, int z) {
-        for(EditTask task : tasks) {
-            if (task.getSourceBox().intersects(x, y, z)) {
-                if (task.getOffset() == null) continue;
-                if (task.getSourceBox().intersects(
-                        x - task.getOffset().getX(),
-                        y - task.getOffset().getY(),
-                        z - task.getOffset().getZ())) {
+
+    private static boolean isCubeSrc(List<EditTask> tasks, int x, int y, int z) {
+        for (EditTask editTask : tasks) {
+            if (editTask.getSourceBox().intersects(x, y, z))
+                return true;
+        }
+        return false;
+    }
+    private static boolean isCubeDst(List<EditTask> tasks, int x, int y, int z) {
+        for (EditTask editTask : tasks) {
+            if (editTask.getOffset() != null) {
+                if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
                     return true;
-                }
+            }
+
+            if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
+                if (editTask.getSourceBox().intersects(x, y, z))
+                    return true;
             }
         }
         return false;
     }
-
-
 
     public static boolean isRegionInCopyOrPasteLoc(List<EditTask> tasks, int x, int y, int z) {
         for(EditTask task : tasks) {
