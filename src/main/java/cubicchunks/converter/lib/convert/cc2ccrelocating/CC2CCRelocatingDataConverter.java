@@ -231,20 +231,42 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         if (offset == null) continue;
                         break;
                     }
-                    case SET:
-                        BlockEditTask blockTask = (BlockEditTask)task;
+                    case SET: {
+                        BlockEditTask blockTask = (BlockEditTask) task;
 
                         List sectionsList = (List) ((CompoundMap) entry.getValue().getValue().get("Level").getValue()).get("Sections").getValue();
                         CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getBlockId());
-                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte)(blockTask.getBlockMeta() | blockTask.getBlockMeta() << 4)); //0b00010001
+                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getOutBlockId());
+                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockTask.getOutBlockMeta() | blockTask.getOutBlockMeta() << 4));
 
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
 
                         continue;
-                    case REPLACE:
+                    }
+                    case REPLACE: {
+                        BlockEditTask blockTask = (BlockEditTask) task;
 
-                        break;
+                        List sectionsList = (List) ((CompoundMap) entry.getValue().getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+
+                        byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
+                        byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+
+                        Byte inBlockId = blockTask.getInBlockId();
+                        Byte inBlockMeta = blockTask.getInBlockMeta();
+                        byte outBlockId = blockTask.getOutBlockId();
+                        byte outBlockMeta = blockTask.getOutBlockMeta();
+
+                        for (int i = 0; i < 4096; i++) {
+                            if(blocks[i] == inBlockId && nibbleGetAtIndex(meta, i) == inBlockMeta) {
+                                blocks[i] = outBlockId;
+                                nibbleSetAtIndex(meta, i, outBlockMeta);
+                            }
+                        }
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
+
+                        continue;
+                    }
                 }
 
                 int dstX = cubeX + offset.getX();
@@ -309,13 +331,21 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         return false;
     }
 
-    private boolean isColumnInCopyOrPasteLoc(int x, int z) {
-        for(EditTask task : this.relocateTasks) {
-            if (task.getSourceBox().columnIntersects(x, z) || task.getSourceBox().columnIntersects(
-                    x - task.getOffset().getX(),
-                    z - task.getOffset().getZ()))
-                return true;
+    private static int nibbleGetAtIndex(byte[] arr, int index)
+    {
+        int i = index >> 1;
+        return (index & 1) == 0 ? arr[i] & 0xf : arr[i] >> 4 & 0xf;
+    }
+
+    private static void nibbleSetAtIndex(byte[] arr, int index, int value)
+    {
+        int i = index >> 1;
+
+        if ((index & 1) == 0) {
+            arr[i] = (byte)(arr[i] & 0xf0 | value & 0xf);
         }
-        return false;
+        else {
+            arr[i] = (byte)(arr[i] & 0xf | (value & 0xf) << 4);
+        }
     }
 }

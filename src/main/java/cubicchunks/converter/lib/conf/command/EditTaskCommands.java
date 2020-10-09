@@ -45,6 +45,7 @@ public class EditTaskCommands {
         RemoveCommand.register(dispatcher);
         KeepCommand.register(dispatcher);
         SetCommand.register(dispatcher);
+        ReplaceCommand.register(dispatcher);
     }
 
     public static int handleCommand(EditTaskContext context, String command) {
