@@ -23,3 +23,5 @@ remove all
 remove 1 0 0 1 1 1
 
 set -20 0 0 0 20 20 3 0
+
+replace -40 0 0 -20 20 20 2 0 1 0
