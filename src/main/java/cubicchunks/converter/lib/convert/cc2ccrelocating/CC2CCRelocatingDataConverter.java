@@ -31,10 +31,7 @@ import cubicchunks.converter.lib.conf.command.EditTaskCommands;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
-import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.EditTask;
-import cubicchunks.converter.lib.util.Vector2i;
-import cubicchunks.converter.lib.util.Vector3i;
+import cubicchunks.converter.lib.util.*;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
@@ -195,42 +192,59 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     continue;
                 }
                 modified = true;
-                if(task.getType() == EditTask.Type.COPY) {
-                    //this is just doing a deep copy of the tag by writing to byte array then back again
-                    ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                    NBTOutputStream out = new NBTOutputStream(bout, false);
-                    out.writeTag(entry.getValue());
+                switch (task.getType()) {
+                    case COPY: {
+                        //this is just doing a deep copy of the tag by writing to byte array then back again
+                        ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
+                        NBTOutputStream out = new NBTOutputStream(bout, false);
+                        out.writeTag(entry.getValue());
 
-                    NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                    Tag tag = is.readTag();
-                    //copy done here ^
-                    tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, (CompoundTag)tag);
-                }
-                else if(task.getType() == EditTask.Type.CUT) {
-                    //REPLACE EVERYTHING IN SECTIONS WITH 0
-                    //this is just doing a deep copy of the tag by writing to byte array then back again
-                    ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                    NBTOutputStream out = new NBTOutputStream(bout, false);
-                    out.writeTag(entry.getValue());
+                        NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
+                        Tag tag = is.readTag();
+                        //copy done here ^
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
+                        break;
+                    }
+                    case CUT: {
+                        //REPLACE EVERYTHING IN SECTIONS WITH 0
+                        //this is just doing a deep copy of the tag by writing to byte array then back again
+                        ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
+                        NBTOutputStream out = new NBTOutputStream(bout, false);
+                        out.writeTag(entry.getValue());
 
-                    NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                    Tag tag = is.readTag();
-                    //copy done here ^
+                        NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
+                        Tag tag = is.readTag();
+                        //copy done here ^
 
-                    CompoundMap sectionDetails = null;
-                    List sectionsList = (List)((CompoundMap)((CompoundTag)tag).getValue().get("Level").getValue()).get("Sections").getValue();
-                    sectionDetails = ((CompoundTag)sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        List sectionsList = (List) ((CompoundMap) ((CompoundTag) tag).getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
 
-                    sectionDetails.putIfAbsent("Add", null);
-                    sectionDetails.remove("Add");
+                        sectionDetails.putIfAbsent("Add", null);
+                        sectionDetails.remove("Add");
 
-                    Arrays.fill((byte[])sectionDetails.get("Blocks").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("Data").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("BlockLight").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("SkyLight").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
 
-                    tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, (CompoundTag)tag);
-                    if(offset == null) continue;
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
+                        if (offset == null) continue;
+                        break;
+                    }
+                    case SET:
+                        BlockEditTask blockTask = (BlockEditTask)task;
+
+                        List sectionsList = (List) ((CompoundMap) entry.getValue().getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getBlockId());
+                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte)(blockTask.getBlockMeta() | blockTask.getBlockMeta() << 4)); //0b00010001
+
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
+
+                        continue;
+                    case REPLACE:
+
+                        break;
                 }
 
                 int dstX = cubeX + offset.getX();
@@ -304,5 +318,4 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         }
         return false;
     }
-
 }
