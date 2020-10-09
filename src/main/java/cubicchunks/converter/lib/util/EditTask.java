@@ -23,11 +23,11 @@
  */
 package cubicchunks.converter.lib.util;
 
-public final class EditTask {
+public class EditTask {
     private final BoundingBox source;
     private final Vector3i offset;
 
-    public enum Type {NONE, CUT, COPY, MOVE, REMOVE, KEEP}
+    public enum Type { NONE, CUT, COPY, MOVE, REMOVE, KEEP, SET, REPLACE }
 
     private final Type type;
 

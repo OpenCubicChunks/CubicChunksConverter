@@ -21,3 +21,5 @@ move 2 0 0 1 1 1 by 5 0 0
 
 remove all
 remove 1 0 0 1 1 1
+
+set -20 0 0 0 20 20 3 0

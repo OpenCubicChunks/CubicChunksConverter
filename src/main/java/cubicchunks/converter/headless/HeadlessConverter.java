@@ -60,8 +60,7 @@ public class HeadlessConverter {
     public static void convert(List<String> commands) {
         HeadlessCommandContext context = new HeadlessCommandContext();
         for (String command : commands) {
-            String line = command;
-            HeadlessCommands.handleCommand(context, line);
+            HeadlessCommands.handleCommand(context, command);
         }
         if(context.getSrcWorld() == null || context.getDstWorld() == null || context.getInFormat() == null || context.getOutFormat() == null || context.getConverterName() == null)
             throw new IllegalStateException("Incomplete arguments!\n" + context);
