@@ -148,10 +148,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 currentColumnData.getCubeData().putAll(keepOnlyCubes);
                 columnData.add(currentColumnData);
             }
-
             return columnData;
 
-        }catch (IOException e) {
+        } catch (IOException e) {
             throw new Error("Compressing cube data failed!", e);
         }
     }
@@ -216,10 +215,14 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         Tag srcTag = is.readTag();
                         //copy done here ^
 
-                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag) srcTag).getValue().get("Level").getValue();
-                        List sectionsList = (List) srcLevel.get("Sections").getValue();
-                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-
+                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        CompoundMap sectionDetails;
+                        try {
+                            sectionDetails = ((CompoundTag) ((List)srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        } catch(NullPointerException e) {
+                            LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+                            continue;
+                        }
                         sectionDetails.putIfAbsent("Add", null);
                         sectionDetails.remove("Add");
 
@@ -238,9 +241,13 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         BlockEditTask blockTask = (BlockEditTask) task;
 
                         CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
-                        List sectionsList = (List) (srcLevel).get("Sections").getValue();
-                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-
+                        CompoundMap sectionDetails;
+                        try {
+                            sectionDetails = ((CompoundTag)((List) (srcLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
+                            LOGGER.warning("Malformed cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+                            continue;
+                        }
                         Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getOutBlockId());
                         Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockTask.getOutBlockMeta() | blockTask.getOutBlockMeta() << 4));
 
@@ -255,8 +262,13 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         BlockEditTask blockTask = (BlockEditTask) task;
 
                         CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
-                        List sectionsList = (List) (srcLevel).get("Sections").getValue();
-                        CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        CompoundMap sectionDetails;
+                        try {
+                            sectionDetails = ((CompoundTag) ((List)srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                        } catch(NullPointerException e) {
+                            LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+                            continue;
+                        }
 
                         byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
                         byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
