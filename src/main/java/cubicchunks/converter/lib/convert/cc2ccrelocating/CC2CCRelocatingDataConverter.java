@@ -213,10 +213,11 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         out.writeTag(entry.getValue());
 
                         NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                        Tag tag = is.readTag();
+                        Tag srcTag = is.readTag();
                         //copy done here ^
 
-                        List sectionsList = (List) ((CompoundMap) ((CompoundTag) tag).getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag) srcTag).getValue().get("Level").getValue();
+                        List sectionsList = (List) srcLevel.get("Sections").getValue();
                         CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
 
                         sectionDetails.putIfAbsent("Add", null);
@@ -227,17 +228,24 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
                         Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
 
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
+                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) srcTag);
                         if (offset == null) continue;
                         break;
                     }
                     case SET: {
                         BlockEditTask blockTask = (BlockEditTask) task;
 
-                        List sectionsList = (List) ((CompoundMap) entry.getValue().getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        List sectionsList = (List) (srcLevel).get("Sections").getValue();
                         CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+
                         Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getOutBlockId());
                         Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockTask.getOutBlockMeta() | blockTask.getOutBlockMeta() << 4));
+
+                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
 
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
 
@@ -246,11 +254,15 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     case REPLACE: {
                         BlockEditTask blockTask = (BlockEditTask) task;
 
-                        List sectionsList = (List) ((CompoundMap) entry.getValue().getValue().get("Level").getValue()).get("Sections").getValue();
+                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        List sectionsList = (List) (srcLevel).get("Sections").getValue();
                         CompoundMap sectionDetails = ((CompoundTag) sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
 
                         byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
                         byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+
+                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
 
                         Byte inBlockId = blockTask.getInBlockId();
                         Byte inBlockMeta = blockTask.getInBlockMeta();
