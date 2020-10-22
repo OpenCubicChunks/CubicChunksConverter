@@ -26,13 +26,14 @@ package cubicchunks.converter.lib.convert.cc2ccmerging;
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.DualSourceCubicChunksColumnData;
 import cubicchunks.converter.lib.util.Utils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class CC2CCDualSourceMergingLevelInfoConverter implements LevelInfoConverter<CubicChunksColumnData, CubicChunksColumnData> {
+public class CC2CCDualSourceMergingLevelInfoConverter implements LevelInfoConverter<DualSourceCubicChunksColumnData, CubicChunksColumnData> {
 
     private final Path prioritySrcDir;
     private final Path fallbackSrcDir;
