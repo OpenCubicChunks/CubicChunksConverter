@@ -76,8 +76,8 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
 
     public DualSourceCubicChunkReader(Path prioritySrcDir, Path fallbackSrcDir, ConverterConfig config) {
         super(fallbackSrcDir, (dim, path) -> (Files.exists(getDimensionPath(dim, prioritySrcDir)) || Files.exists(getDimensionPath(dim, fallbackSrcDir)))
-                ? createDualSave(getDimensionPath(dim, prioritySrcDir), getDimensionPath(dim, fallbackSrcDir))
-                : null
+            ? createDualSave(getDimensionPath(dim, prioritySrcDir), getDimensionPath(dim, fallbackSrcDir))
+            : null
         );
 
         loadThread = Thread.currentThread();
@@ -295,12 +295,13 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
                             return;
                         }
                         int y = yCursor.value;
-                        ByteBuffer priorityCube = prioritySave.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                            () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
-                        priorityCubes.put(y, priorityCube);
+                        ByteBuffer priorityCube = prioritySave.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElse(null);
+                        ByteBuffer fallbackCube = fallbackSave.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElse(null);
 
-                        ByteBuffer fallbackCube = prioritySave.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                            () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                        if(priorityCube == null && fallbackCube == null)
+                            throw new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim);
+
+                        priorityCubes.put(y, priorityCube);
                         fallbackCubes.put(y, fallbackCube);
                     }
                     DualSourceCubicChunksColumnData data = new DualSourceCubicChunksColumnData(dim, pos2d, column, priorityCubes, fallbackCubes);
@@ -447,67 +448,6 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
         providers3d.put(dualSourceSaveCubeColumns, new HashMap.SimpleEntry<>(priorityProviders3d, fallbackProviders3d));
         return dualSourceSaveCubeColumns;
     }
-
-//    private static SaveCubeColumns createSave(Path path) {
-//        try {
-//            Utils.createDirectories(path);
-//
-//            Path part2d = path.resolve("region2d");
-//            Utils.createDirectories(part2d);
-//
-//            Path part3d = path.resolve("region3d");
-//            Utils.createDirectories(part3d);
-//
-//            EntryLocation2D.Provider keyProv2d = new EntryLocation2D.Provider();
-//            EntryLocation3D.Provider keyProv3d = new EntryLocation3D.Provider();
-//
-//            IRegionProvider<EntryLocation2D> prov2d1, prov2d2;
-//            IRegionProvider<EntryLocation3D> prov3d1, prov3d2;
-//            SaveSection2D section2d = new SaveSection2D(
-//                prov2d1 = new RWLockingCachedRegionProvider<>(
-//                    new SimpleRegionProvider<>(keyProv2d, part2d, (keyProv, r) ->
-//                        new MemoryReadRegion.Builder<EntryLocation2D>()
-//                            .setDirectory(part2d)
-//                            .setRegionKey(r)
-//                            .setKeyProvider(keyProv2d)
-//                            .setSectorSize(512)
-//                            .build(),
-//                        (file, key) -> Files.exists(file)
-//                    )
-//                ),
-//                prov2d2 = new RWLockingCachedRegionProvider<>(
-//                    new SimpleRegionProvider<>(new EntryLocation2D.Provider(), part2d,
-//                        (keyProvider, regionKey) -> new ExtRegion<>(part2d, Collections.emptyList(), keyProvider, regionKey),
-//                        (file, key) -> Files.exists(file.resolveSibling(key.getRegionKey().getName() + ".ext"))
-//                    )
-//                ));
-//            SaveSection3D section3d = new SaveSection3D(
-//                prov3d1 = new RWLockingCachedRegionProvider<>(
-//                    new SimpleRegionProvider<>(keyProv3d, part3d, (keyProv, r) ->
-//                        new MemoryReadRegion.Builder<EntryLocation3D>()
-//                            .setDirectory(part3d)
-//                            .setRegionKey(r)
-//                            .setKeyProvider(keyProv3d)
-//                            .setSectorSize(512)
-//                            .build(),
-//                        (file, key) -> Files.exists(file)
-//                    )
-//                ),
-//                prov3d2 = new RWLockingCachedRegionProvider<>(
-//                    new SimpleRegionProvider<>(new EntryLocation3D.Provider(), part3d,
-//                        (keyProvider, regionKey) -> new ExtRegion<>(part3d, Collections.emptyList(), keyProvider, regionKey),
-//                        (dir, key) -> Files.exists(dir.resolveSibling(key.getRegionKey().getName() + ".ext"))
-//                    )
-//                ));
-//
-//            SaveCubeColumns saveCubeColumns = new SaveCubeColumns(section2d, section3d);
-//            providers2d.put(saveCubeColumns, Arrays.asList(prov2d1, prov2d2));
-//            providers3d.put(saveCubeColumns, Arrays.asList(prov3d1, prov3d2));
-//            return saveCubeColumns;
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
-//    }
 
     private static Vector3i toRegionPos(RegionKey key) {
         String[] split = key.getName().split("\\.");
