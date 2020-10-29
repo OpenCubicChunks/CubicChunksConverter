@@ -215,7 +215,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         Tag srcTag = is.readTag();
                         //copy done here ^
 
-                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag)srcTag).getValue().get("Level").getValue();
                         CompoundMap sectionDetails;
                         try {
                             sectionDetails = ((CompoundTag) ((List)srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
