@@ -191,6 +191,11 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     continue;
                 }
                 modified = true;
+
+                CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                entryLevel.put(new ByteTag("initLightDone", (byte) 0));
+
                 switch (task.getType()) {
                     case COPY: {
                         //this is just doing a deep copy of the tag by writing to byte array then back again
@@ -201,6 +206,12 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
                         Tag tag = is.readTag();
                         //copy done here ^
+
+                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag)tag).getValue().get("Level").getValue();
+
+                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
                         break;
                     }
@@ -233,6 +244,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
                         srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
                         srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) srcTag);
                         if (offset == null) continue;
                         break;
@@ -240,19 +252,15 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     case SET: {
                         BlockEditTask blockTask = (BlockEditTask) task;
 
-                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
                         CompoundMap sectionDetails;
                         try {
-                            sectionDetails = ((CompoundTag)((List) (srcLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                            sectionDetails = ((CompoundTag)((List) (entryLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
                         } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
                             LOGGER.warning("Malformed cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
                             continue;
                         }
                         Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getOutBlockId());
                         Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockTask.getOutBlockMeta() | blockTask.getOutBlockMeta() << 4));
-
-                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
 
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
 
@@ -261,10 +269,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     case REPLACE: {
                         BlockEditTask blockTask = (BlockEditTask) task;
 
-                        CompoundMap srcLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
                         CompoundMap sectionDetails;
                         try {
-                            sectionDetails = ((CompoundTag) ((List)srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                            sectionDetails = ((CompoundTag) ((List)entryLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
                         } catch(NullPointerException e) {
                             LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
                             continue;
@@ -272,9 +279,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
                         byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
                         byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
-
-                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
 
                         Byte inBlockId = blockTask.getInBlockId();
                         Byte inBlockMeta = blockTask.getInBlockMeta();
