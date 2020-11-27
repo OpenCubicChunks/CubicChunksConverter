@@ -155,6 +155,9 @@ public class WorldConverter<IN, OUT> {
                 }
             }
         }
+        if (errorResult == IProgressListener.ErrorHandleResult.IGNORE || errorResult == IProgressListener.ErrorHandleResult.IGNORE_ALL) {
+            errored = false;
+        }
         if (!errored) {
             levelConverter.convert();
         }
