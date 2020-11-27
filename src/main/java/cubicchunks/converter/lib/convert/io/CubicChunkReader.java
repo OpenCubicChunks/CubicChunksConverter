@@ -236,7 +236,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                         return;
                     }
                     int y = yCursor.value;
-                    ByteBuffer cube = null;
+                    ByteBuffer cube;
                     try {
                         cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
                                 () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
@@ -245,6 +245,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                         if (!errorHandler.test(e)) {
                             return;
                         }
+                        continue;
                     }
                     cubes.put(y, cube);
                 }
