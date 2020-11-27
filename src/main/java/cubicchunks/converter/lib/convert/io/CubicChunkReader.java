@@ -243,7 +243,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (!errorHandler.test(e)) {
-                            return;
+                            throw new UncheckedInterruptedException();
                         }
                         continue;
                     }
