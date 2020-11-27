@@ -30,7 +30,13 @@ import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
-import cubicchunks.converter.lib.util.*;
+import cubicchunks.converter.lib.util.BoundingBox;
+import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.MemoryReadRegion;
+import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
+import cubicchunks.converter.lib.util.UncheckedInterruptedException;
+import cubicchunks.converter.lib.util.Utils;
+import cubicchunks.converter.lib.util.Vector3i;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.api.region.key.RegionKey;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -60,6 +66,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData, SaveCubeColumns> {
 
@@ -187,19 +194,21 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
         return dimensions;
     }
 
-    @Override public void loadChunks(Consumer<? super CubicChunksColumnData> consumer) throws IOException, InterruptedException {
+    @Override public void loadChunks(Consumer<? super CubicChunksColumnData> consumer, Predicate<Throwable> errorHandler) throws IOException, InterruptedException {
         try {
             ChunkList list = chunkList.get();
             if (list == null) {
                 return; // counting interrupted
             }
-            doLoadChunks(consumer, list);
+            doLoadChunks(consumer, list, errorHandler);
+        } catch (UncheckedInterruptedException ex) {
+            // interrupted, do nothing
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void doLoadChunks(Consumer<? super CubicChunksColumnData> consumer, ChunkList list) throws IOException {
+    private void doLoadChunks(Consumer<? super CubicChunksColumnData> consumer, ChunkList list, Predicate<Throwable> errorHandler) {
         for (Map.Entry<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
@@ -210,25 +219,38 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                 if (Thread.interrupted()) {
                     return;
                 }
+                EntryLocation2D pos2d = chunksEntry.getKey();
+                IntArrayList yCoords = chunksEntry.getValue();
+                ByteBuffer column = null;
                 try {
-                    EntryLocation2D pos2d = chunksEntry.getKey();
-                    IntArrayList yCoords = chunksEntry.getValue();
-                    ByteBuffer column = save.load(pos2d, true).orElse(null);
-                    Map<Integer, ByteBuffer> cubes = new HashMap<>();
-                    for (IntCursor yCursor : yCoords) {
-                        if (Thread.interrupted()) {
+                    column = save.load(pos2d, true).orElse(null);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    if (!errorHandler.test(e)) {
+                        return;
+                    }
+                }
+                Map<Integer, ByteBuffer> cubes = new HashMap<>();
+                for (IntCursor yCursor : yCoords) {
+                    if (Thread.interrupted()) {
+                        return;
+                    }
+                    int y = yCursor.value;
+                    ByteBuffer cube = null;
+                    try {
+                        cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
+                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        if (!errorHandler.test(e)) {
                             return;
                         }
-                        int y = yCursor.value;
-                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
-                        cubes.put(y, cube);
                     }
-                    CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
-                    consumer.accept(data);
-                } catch (IOException ex) {
-                    throw new UncheckedIOException(ex);
+                    cubes.put(y, cube);
                 }
+                CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
+                consumer.accept(data);
+
             });
         }
     }

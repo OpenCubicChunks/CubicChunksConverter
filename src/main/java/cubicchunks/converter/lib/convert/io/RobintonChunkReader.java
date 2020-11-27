@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class RobintonChunkReader extends BaseMinecraftReader<RobintonColumnData, RobintonSaveSection> {
 
@@ -91,19 +92,21 @@ public class RobintonChunkReader extends BaseMinecraftReader<RobintonColumnData,
         return dimensions;
     }
 
-    @Override public void loadChunks(Consumer<? super RobintonColumnData> consumer) throws IOException, InterruptedException {
+    @Override public void loadChunks(Consumer<? super RobintonColumnData> consumer, Predicate<Throwable> errorHandler) throws IOException, InterruptedException {
         try {
             RobintonChunkReader.ChunkList list = chunkList.get();
             if (list == null) {
                 return; // counting interrupted
             }
-            doLoadChunks(consumer, list);
+            doLoadChunks(consumer, list, errorHandler);
+        } catch (UncheckedInterruptedException e) {
+            // interrupted, ignore
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void doLoadChunks(Consumer<? super RobintonColumnData> consumer, RobintonChunkReader.ChunkList list) throws IOException {
+    private void doLoadChunks(Consumer<? super RobintonColumnData> consumer, ChunkList list, Predicate<Throwable> errorHandler) {
         for (Map.Entry<Dimension, Map<EntryLocation2D, IntArrayList>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
@@ -122,8 +125,16 @@ public class RobintonChunkReader extends BaseMinecraftReader<RobintonColumnData,
                         return;
                     }
                     int y = yCursor.value;
-                    ByteBuffer cube = save.load(new RobintonEntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                            () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                    ByteBuffer cube = null;
+                    try {
+                        cube = save.load(new RobintonEntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
+                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        if (!errorHandler.test(e)) {
+                            return;
+                        }
+                    }
 
                     cubes.put(y, cube);
                 }

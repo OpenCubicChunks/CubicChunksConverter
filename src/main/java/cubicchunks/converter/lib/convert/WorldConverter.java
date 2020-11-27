@@ -55,6 +55,7 @@ public class WorldConverter<IN, OUT> {
     // handle errors one at a time
     private final Object errorLock = new Object();
     private Thread countingThread;
+    private IProgressListener.ErrorHandleResult errorResult;
 
     public WorldConverter(
         LevelInfoConverter<IN, OUT> levelConverter,
@@ -102,6 +103,9 @@ public class WorldConverter<IN, OUT> {
                 synchronized(object) {
                     copyChunks++;
                 }
+            }, ex -> {
+                handleError(ex, progress);
+                return errorResult == IProgressListener.ErrorHandleResult.IGNORE || errorResult == IProgressListener.ErrorHandleResult.IGNORE_ALL;
             });
         } catch (InterruptedException e) {
             // just shutdown
@@ -206,6 +210,7 @@ public class WorldConverter<IN, OUT> {
                 return;
             }
             IProgressListener.ErrorHandleResult result = progress.error(t);
+            errorResult = result;
             switch (result) {
                 case STOP_DISCARD:
                     discardConverted = true;

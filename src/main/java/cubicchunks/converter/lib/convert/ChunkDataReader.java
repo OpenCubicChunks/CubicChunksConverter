@@ -25,6 +25,7 @@ package cubicchunks.converter.lib.convert;
 
 import java.io.IOException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Loads chunk data from input format into an in-memory representation appropriate for a specific format converter.
@@ -42,8 +43,11 @@ public interface ChunkDataReader<T> extends AutoCloseable {
     /**
      * Loads chunks into memory, and gives them to the provided consumer.
      * The provided consumer will block if data is provided too fast.
+     *
+     * @param accept the data consumer
+     * @param errorHandler the error handler. Returns true if reading should continue, false otherwise.
      */
-    void loadChunks(Consumer<? super T> accept) throws IOException, InterruptedException;
+    void loadChunks(Consumer<? super T> accept, Predicate<Throwable> errorHandler) throws IOException, InterruptedException;
 
     /**
      * Indicates that reading chunks should be stopped and
