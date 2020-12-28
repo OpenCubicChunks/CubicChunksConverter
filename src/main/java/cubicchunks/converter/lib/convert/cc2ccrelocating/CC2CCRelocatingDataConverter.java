@@ -173,14 +173,13 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             int cubeY = (Integer) level.get("y").getValue();
             int cubeZ = (Integer) level.get("z").getValue();
 
-            boolean modified = false;
-            boolean deleted = false;
+            if(!isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
+                tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
+                continue;
+            }
+
             for (EditTask task : this.relocateTasks) {
                 if(task.getType() == EditTask.Type.KEEP) {
-                    continue;
-                }
-                if (task.getType() == EditTask.Type.REMOVE && task.getSourceBox().intersects(cubeX, cubeY, cubeZ)) {
-                    deleted = true;
                     continue;
                 }
 
@@ -190,66 +189,100 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 if (!sourceBox.intersects(cubeX, cubeY, cubeZ)) {
                     continue;
                 }
-                modified = true;
-
-                CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
-                entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                entryLevel.put(new ByteTag("initLightDone", (byte) 0));
 
                 switch (task.getType()) {
+                    case REMOVE: {
+                        Vector2i vector2i = new Vector2i(cubeX, cubeZ);
+                        Map<Integer, CompoundTag> column = tagMap.get(vector2i);
+                        if(column != null) {
+                            column.remove(cubeY);
+                            if (column.isEmpty())
+                                tagMap.remove(vector2i);
+                        } else
+                            tagMap.remove(vector2i);
+                        break;
+                    }
                     case COPY: {
-                        //this is just doing a deep copy of the tag by writing to byte array then back again
-                        ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                        NBTOutputStream out = new NBTOutputStream(bout, false);
-                        out.writeTag(entry.getValue());
+                        if(!(isCubeDstExclusive(task, cubeX, cubeY, cubeZ) && isCubeSrc(task, cubeX, cubeY, cubeZ))) {
+                            //this is just doing a deep copy of the tag by writing to byte array then back again
+                            ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
+                            NBTOutputStream out = new NBTOutputStream(bout, false);
+                            out.writeTag(entry.getValue());
 
-                        NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                        Tag tag = is.readTag();
-                        //copy done here ^
+                            NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
+                            Tag tag = is.readTag();
+                            //copy done here ^
 
-                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag)tag).getValue().get("Level").getValue();
+                            CompoundMap srcLevel = (CompoundMap) ((CompoundTag) tag).getValue().get("Level").getValue();
 
-                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+                            srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                            srcLevel.put(new ByteTag("initLightDone", (byte) 0));
 
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
+                            tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
+                        }
+
+                        int dstX = cubeX + offset.getX();
+                        int dstY = cubeY + offset.getY();
+                        int dstZ = cubeZ + offset.getZ();
+                        level.put(new IntTag("x", dstX));
+                        level.put(new IntTag("y", dstY));
+                        level.put(new IntTag("z", dstZ));
+
+                        tagMap.computeIfAbsent(new Vector2i(dstX, dstZ), key->new HashMap<>()).put(dstY, entry.getValue());
+
                         break;
                     }
                     case CUT: {
-                        //REPLACE EVERYTHING IN SECTIONS WITH 0
-                        //this is just doing a deep copy of the tag by writing to byte array then back again
-                        ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                        NBTOutputStream out = new NBTOutputStream(bout, false);
-                        out.writeTag(entry.getValue());
+                        if(!(isCubeDstExclusive(task, cubeX, cubeY, cubeZ) && isCubeSrc(task, cubeX, cubeY, cubeZ))) {
+                            //REPLACE EVERYTHING IN SECTIONS WITH 0
+                            //this is just doing a deep copy of the tag by writing to byte array then back again
+                            ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
+                            NBTOutputStream out = new NBTOutputStream(bout, false);
+                            out.writeTag(entry.getValue());
 
-                        NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                        Tag srcTag = is.readTag();
-                        //copy done here ^
+                            NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
+                            Tag srcTag = is.readTag();
+                            //copy done here ^
 
-                        CompoundMap srcLevel = (CompoundMap) ((CompoundTag)srcTag).getValue().get("Level").getValue();
-                        CompoundMap sectionDetails;
-                        try {
-                            sectionDetails = ((CompoundTag) ((List)srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-                        } catch(NullPointerException e) {
-                            LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
-                            continue;
+                            CompoundMap srcLevel = (CompoundMap) ((CompoundTag) srcTag).getValue().get("Level").getValue();
+                            CompoundMap sectionDetails;
+                            try {
+                                sectionDetails = ((CompoundTag) ((List) srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                            } catch (NullPointerException e) {
+                                LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+                                continue;
+                            }
+                            sectionDetails.putIfAbsent("Add", null);
+                            sectionDetails.remove("Add");
+
+                            Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
+                            Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
+                            Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
+                            Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
+
+                            srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                            srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+
+                            tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) srcTag);
+                            if (offset == null) continue;
                         }
-                        sectionDetails.putIfAbsent("Add", null);
-                        sectionDetails.remove("Add");
 
-                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
-                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
-                        Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
-                        Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
+                        int dstX = cubeX + offset.getX();
+                        int dstY = cubeY + offset.getY();
+                        int dstZ = cubeZ + offset.getZ();
+                        level.put(new IntTag("x", dstX));
+                        level.put(new IntTag("y", dstY));
+                        level.put(new IntTag("z", dstZ));
 
-                        srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+                        tagMap.computeIfAbsent(new Vector2i(dstX, dstZ), key->new HashMap<>()).put(dstY, entry.getValue());
 
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) srcTag);
-                        if (offset == null) continue;
                         break;
                     }
                     case SET: {
+                        CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
+
                         BlockEditTask blockTask = (BlockEditTask) task;
 
                         CompoundMap sectionDetails;
@@ -264,9 +297,13 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
 
-                        continue;
+                        break;
                     }
                     case REPLACE: {
+                        CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
+                        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
+
                         BlockEditTask blockTask = (BlockEditTask) task;
 
                         CompoundMap sectionDetails;
@@ -293,29 +330,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                         }
                         tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
 
-                        continue;
+                        break;
                     }
                 }
-
-                int dstX = cubeX + offset.getX();
-                int dstY = cubeY + offset.getY();
-                int dstZ = cubeZ + offset.getZ();
-                level.put(new IntTag("x", dstX));
-                level.put(new IntTag("y", dstY));
-                level.put(new IntTag("z", dstZ));
-
-                tagMap.computeIfAbsent(new Vector2i(dstX, dstZ), key->new HashMap<>()).put(dstY, entry.getValue());
-            }
-            if(deleted) {
-                Vector2i vector2i = new Vector2i(cubeX, cubeZ);
-                Map<Integer, CompoundTag> column = tagMap.computeIfAbsent(vector2i, key -> new HashMap<>());
-                column.remove(cubeY);
-                if(column.isEmpty())
-                    tagMap.remove(vector2i);
-                continue;
-            }
-            if(!modified && !isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
-                tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
             }
         }
 
@@ -324,23 +341,35 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
     private static boolean isCubeSrc(List<EditTask> tasks, int x, int y, int z) {
         for (EditTask editTask : tasks) {
-            if (editTask.getSourceBox().intersects(x, y, z))
+            if (isCubeSrc(editTask, x, y, z))
                 return true;
         }
         return false;
     }
     private static boolean isCubeDst(List<EditTask> tasks, int x, int y, int z) {
         for (EditTask editTask : tasks) {
-            if (editTask.getOffset() != null) {
-                if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
-                    return true;
-            }
-
-            if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
-                if (editTask.getSourceBox().intersects(x, y, z))
-                    return true;
-            }
+            if(isCubeDst(editTask, x, y, z))
+                return true;
         }
+        return false;
+    }
+    private static boolean isCubeSrc(EditTask editTask, int x, int y, int z) {
+        return editTask.getSourceBox().intersects(x, y, z);
+    }
+    private static boolean isCubeDst(EditTask editTask, int x, int y, int z) {
+        if (editTask.getOffset() != null) {
+            if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
+                return true;
+        }
+
+        if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
+            return editTask.getSourceBox().intersects(x, y, z);
+        }
+        return false;
+    }
+    private static boolean isCubeDstExclusive(EditTask editTask, int x, int y, int z) {
+        if (editTask.getOffset() != null)
+            return editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z);
         return false;
     }
 
