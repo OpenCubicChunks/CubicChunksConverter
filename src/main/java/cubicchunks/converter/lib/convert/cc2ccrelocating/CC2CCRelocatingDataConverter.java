@@ -32,6 +32,8 @@ import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
+import cubicchunks.converter.lib.util.edittask.BlockEditTask;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;

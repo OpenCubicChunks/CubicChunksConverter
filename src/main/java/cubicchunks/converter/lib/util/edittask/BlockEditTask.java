@@ -1,4 +1,7 @@
-package cubicchunks.converter.lib.util;
+package cubicchunks.converter.lib.util.edittask;
+
+import cubicchunks.converter.lib.util.BoundingBox;
+import cubicchunks.converter.lib.util.Vector3i;
 
 public class BlockEditTask extends EditTask {
 

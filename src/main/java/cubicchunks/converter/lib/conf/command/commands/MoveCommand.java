@@ -30,7 +30,7 @@ import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.conf.command.arguments.Vector3iArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.converter.lib.util.Vector3i;
 
 public class MoveCommand {

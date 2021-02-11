@@ -31,6 +31,7 @@ import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.api.region.key.RegionKey;
 import cubicchunks.regionlib.impl.EntryLocation2D;
