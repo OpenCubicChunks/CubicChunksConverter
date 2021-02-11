@@ -21,13 +21,39 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.util;
+package cubicchunks.converter.lib.util.edittask;
+
+import cubicchunks.converter.lib.util.BoundingBox;
+import cubicchunks.converter.lib.util.Vector3i;
 
 public class EditTask {
     private final BoundingBox source;
     private final Vector3i offset;
 
-    public enum Type { NONE, CUT, COPY, MOVE, REMOVE, KEEP, SET, REPLACE }
+    public enum Type {
+        NONE(false, false, false, false),
+        CUT(true, true, true, false),
+        COPY(false, true, true, false),
+        MOVE(true, true, true, false),
+        REMOVE(true, false, false, false),
+        KEEP(false, false, true, false),
+        SET(true, false, true, false),
+        REPLACE(true, false, true, false);
+
+        final boolean REQUIRES_SRC_RELOAD;
+        final boolean REQUIRED_DST_RELOAD;
+
+        final boolean REQUIRES_SRC_SAVE;
+        final boolean REQUIRES_DST_SAVE;
+
+        Type(boolean requires_src_reload, boolean requires_dst_reload, boolean requires_src_save, boolean requires_dst_save) {
+            REQUIRES_SRC_RELOAD = requires_src_reload;
+            REQUIRED_DST_RELOAD = requires_dst_reload;
+
+            REQUIRES_SRC_SAVE = requires_src_save;
+            REQUIRES_DST_SAVE = requires_dst_save;
+        }
+    }
 
     private final Type type;
 

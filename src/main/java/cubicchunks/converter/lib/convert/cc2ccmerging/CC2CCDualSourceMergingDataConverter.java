@@ -4,7 +4,7 @@ import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.DualSourceCubicChunksColumnData;
-import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 
 import java.nio.ByteBuffer;
 import java.util.*;

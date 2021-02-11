@@ -29,7 +29,7 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 
 public class RemoveCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
