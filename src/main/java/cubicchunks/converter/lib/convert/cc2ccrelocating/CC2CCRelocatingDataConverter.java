@@ -24,20 +24,16 @@
 package cubicchunks.converter.lib.convert.cc2ccrelocating;
 
 import com.flowpowered.nbt.*;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.conf.command.EditTaskCommands;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
-import cubicchunks.converter.lib.util.edittask.BlockEditTask;
 import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -90,64 +86,71 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         Map<Integer, ByteBuffer> cubes = new HashMap<>();
 
         //Split out cubes that are only in a keep tasked bounding box
-        Map<Integer, ByteBuffer> keepOnlyCubes = new HashMap<>();
+        Map<Integer, ByteBuffer> noReadCubes = new HashMap<>();
+        EntryLocation2D inPosition = input.getPosition();
         for(Map.Entry<Integer, ByteBuffer> entry : inCubes.entrySet()) {
-            cubes.put(entry.getKey(), entry.getValue());
-            boolean anyNonKeep = false;
-            boolean anyTask = false;
+            boolean anyBoxNeedsData = false;
+            boolean intersectsAnyBoxes = false;
+
             for(EditTask task : relocateTasks) {
-                if(task.getSourceBox().intersects(input.getPosition().getEntryX(), entry.getKey(), input.getPosition().getEntryZ())) {
-                    anyTask = true;
-                    if(task.getType() != EditTask.Type.KEEP) {
-                        anyNonKeep = true;
-                        break;
-                    }
-                }
-                if(task.getOffset() != null)
-                    if(task.getSourceBox().add(task.getOffset()).intersects(input.getPosition().getEntryX(), entry.getKey(), input.getPosition().getEntryZ())) {
-                        anyTask = true;
-                        if(task.getType() != EditTask.Type.KEEP) {
-                            anyNonKeep = true;
+                List<BoundingBox> srcBoxes = task.getSrcBoxes();
+                for (BoundingBox srcBox : srcBoxes) {
+                    if(srcBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
+                        intersectsAnyBoxes = true;
+                        if(task.readsCubeData()) {
+                            anyBoxNeedsData = true;
                             break;
                         }
                     }
-            }
-            if(anyTask) {
-                if(!anyNonKeep) {
-                    keepOnlyCubes.put(entry.getKey(), entry.getValue());
-                    cubes.remove(entry.getKey());
                 }
-            }
-        }
 
-        Map<Integer, CompoundTag> oldCubeTags = new HashMap<>();
-        cubes.forEach((key, value) ->
-                {
-                    try {
-                        oldCubeTags.put(key, readCompressedCC(new ByteArrayInputStream(value.array())));
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                List<BoundingBox> dstBoxes = task.getDstBoxes();
+                for (BoundingBox dstBox : dstBoxes) {
+                    if(dstBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
+                        intersectsAnyBoxes = true;
+                        if(task.readsCubeData()) {
+                            anyBoxNeedsData = true;
+                            break;
+                        }
                     }
                 }
-        );
+
+            }
+            if(intersectsAnyBoxes) {
+                if (anyBoxNeedsData)
+                    cubes.put(entry.getKey(), entry.getValue());
+                else
+                    noReadCubes.put(entry.getKey(), entry.getValue());
+            } else
+                noReadCubes.put(entry.getKey(), entry.getValue());
+        }
+
+        Map<Integer, CompoundTag> inCubeData = new HashMap<>();
+        cubes.forEach((key, value) -> {
+            try {
+                inCubeData.put(key, readCompressedCC(new ByteArrayInputStream(value.array())));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
 
         try {
-            Map<Vector2i, Map<Integer, CompoundTag>> uncompressedData = relocateCubeData(oldCubeTags);
+            Map<Vector2i, Map<Integer, CompoundTag>> outCubeData = relocateCubeData(inCubeData);
 
             Set<CubicChunksColumnData> columnData = new HashSet<>();
-            EntryLocation2D inPos = input.getPosition();
-            for (Map.Entry<Vector2i, Map<Integer, CompoundTag>> entry : uncompressedData.entrySet()) {
-                ByteBuffer column = entry.getKey().getX() != inPos.getEntryX() || entry.getKey().getY() != inPos.getEntryZ() ? null : input.getColumnData();
+            for (Map.Entry<Vector2i, Map<Integer, CompoundTag>> entry : outCubeData.entrySet()) {
+                Vector2i key = entry.getKey();
+                ByteBuffer column = key.getX() != inPosition.getEntryX() || key.getY() != inPosition.getEntryZ() ? null : input.getColumnData();
 
-                EntryLocation2D location = new EntryLocation2D(entry.getKey().getX(), entry.getKey().getY());
+                EntryLocation2D location = new EntryLocation2D(key.getX(), key.getY());
                 columnData.add(new CubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue())));
             }
-            if (!keepOnlyCubes.isEmpty()) {
+            if (!noReadCubes.isEmpty()) {
                 CubicChunksColumnData currentColumnData = columnData.stream()
-                        .filter(x -> x.getPosition().equals(input.getPosition()))
+                        .filter(x -> x.getPosition().equals(inPosition))
                         .findAny()
-                        .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), input.getPosition(), input.getColumnData(), new HashMap<>()));
-                currentColumnData.getCubeData().putAll(keepOnlyCubes);
+                        .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>()));
+                currentColumnData.getCubeData().putAll(noReadCubes);
                 columnData.add(currentColumnData);
             }
             return columnData;
@@ -175,236 +178,89 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             int cubeY = (Integer) level.get("y").getValue();
             int cubeZ = (Integer) level.get("z").getValue();
 
-            if(!isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
-                tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
-                continue;
-            }
+            //TODO: figure out why this is needed
+//            if(!isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
+//                tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
+//                continue;
+//            }
 
             for (EditTask task : this.relocateTasks) {
-                if(task.getType() == EditTask.Type.KEEP) {
+                if(!task.readsCubeData()) {
                     continue;
                 }
 
-                BoundingBox sourceBox = task.getSourceBox();
-                Vector3i offset = task.getOffset();
-
-                if (!sourceBox.intersects(cubeX, cubeY, cubeZ)) {
+                boolean cubeIsSrc = false;
+                for (BoundingBox sourceBox : task.getSrcBoxes()) {
+                    if(sourceBox.intersects(cubeX, cubeY, cubeZ)) {
+                        cubeIsSrc = true;
+                        break;
+                    }
+                }
+                if(!cubeIsSrc)
                     continue;
-                }
 
-                switch (task.getType()) {
-                    case REMOVE: {
-                        Vector2i vector2i = new Vector2i(cubeX, cubeZ);
-                        Map<Integer, CompoundTag> column = tagMap.get(vector2i);
-                        if(column != null) {
-                            column.remove(cubeY);
-                            if (column.isEmpty())
-                                tagMap.remove(vector2i);
-                        } else
-                            tagMap.remove(vector2i);
-                        break;
-                    }
-                    case COPY: {
-                        if(!(isCubeDstExclusive(task, cubeX, cubeY, cubeZ) && isCubeSrc(task, cubeX, cubeY, cubeZ))) {
-                            //this is just doing a deep copy of the tag by writing to byte array then back again
-                            ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                            NBTOutputStream out = new NBTOutputStream(bout, false);
-                            out.writeTag(entry.getValue());
+                List<ImmutablePair<Vector3i, CompoundTag>> outputCubes = task.actOnCube(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), entry.getValue()));
 
-                            NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                            Tag tag = is.readTag();
-                            //copy done here ^
-
-                            CompoundMap srcLevel = (CompoundMap) ((CompoundTag) tag).getValue().get("Level").getValue();
-
-                            srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                            srcLevel.put(new ByteTag("initLightDone", (byte) 0));
-
-                            tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) tag);
-                        }
-
-                        int dstX = cubeX + offset.getX();
-                        int dstY = cubeY + offset.getY();
-                        int dstZ = cubeZ + offset.getZ();
-                        level.put(new IntTag("x", dstX));
-                        level.put(new IntTag("y", dstY));
-                        level.put(new IntTag("z", dstZ));
-
-                        tagMap.computeIfAbsent(new Vector2i(dstX, dstZ), key->new HashMap<>()).put(dstY, entry.getValue());
-
-                        break;
-                    }
-                    case CUT: {
-                        if(!(isCubeDstExclusive(task, cubeX, cubeY, cubeZ) && isCubeSrc(task, cubeX, cubeY, cubeZ))) {
-                            //REPLACE EVERYTHING IN SECTIONS WITH 0
-                            //this is just doing a deep copy of the tag by writing to byte array then back again
-                            ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                            NBTOutputStream out = new NBTOutputStream(bout, false);
-                            out.writeTag(entry.getValue());
-
-                            NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                            Tag srcTag = is.readTag();
-                            //copy done here ^
-
-                            CompoundMap srcLevel = (CompoundMap) ((CompoundTag) srcTag).getValue().get("Level").getValue();
-                            CompoundMap sectionDetails;
-                            try {
-                                sectionDetails = ((CompoundTag) ((List) srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-                            } catch (NullPointerException e) {
-                                LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
-                                continue;
-                            }
-                            sectionDetails.putIfAbsent("Add", null);
-                            sectionDetails.remove("Add");
-
-                            Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
-                            Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
-                            Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
-                            Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
-
-                            srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                            srcLevel.put(new ByteTag("initLightDone", (byte) 0));
-
-                            tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, (CompoundTag) srcTag);
-                            if (offset == null) continue;
-                        }
-
-                        int dstX = cubeX + offset.getX();
-                        int dstY = cubeY + offset.getY();
-                        int dstZ = cubeZ + offset.getZ();
-                        level.put(new IntTag("x", dstX));
-                        level.put(new IntTag("y", dstY));
-                        level.put(new IntTag("z", dstZ));
-
-                        tagMap.computeIfAbsent(new Vector2i(dstX, dstZ), key->new HashMap<>()).put(dstY, entry.getValue());
-
-                        break;
-                    }
-                    case SET: {
-                        CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
-                        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
-
-                        BlockEditTask blockTask = (BlockEditTask) task;
-
-                        CompoundMap sectionDetails;
-                        try {
-                            sectionDetails = ((CompoundTag)((List) (entryLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-                        } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
-                            LOGGER.warning("Malformed cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
-                            continue;
-                        }
-                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockTask.getOutBlockId());
-                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockTask.getOutBlockMeta() | blockTask.getOutBlockMeta() << 4));
-
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
-
-                        break;
-                    }
-                    case REPLACE: {
-                        CompoundMap entryLevel = (CompoundMap) entry.getValue().getValue().get("Level").getValue();
-                        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
-
-                        BlockEditTask blockTask = (BlockEditTask) task;
-
-                        CompoundMap sectionDetails;
-                        try {
-                            sectionDetails = ((CompoundTag) ((List)entryLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-                        } catch(NullPointerException e) {
-                            LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
-                            continue;
-                        }
-
-                        byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
-                        byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
-
-                        Byte inBlockId = blockTask.getInBlockId();
-                        Byte inBlockMeta = blockTask.getInBlockMeta();
-                        byte outBlockId = blockTask.getOutBlockId();
-                        byte outBlockMeta = blockTask.getOutBlockMeta();
-
-                        for (int i = 0; i < 4096; i++) {
-                            if(blocks[i] == inBlockId && nibbleGetAtIndex(meta, i) == inBlockMeta) {
-                                blocks[i] = outBlockId;
-                                nibbleSetAtIndex(meta, i, outBlockMeta);
-                            }
-                        }
-                        tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key -> new HashMap<>()).put(cubeY, entry.getValue());
-
-                        break;
-                    }
-                }
+                outputCubes.forEach(pair -> {
+                    Vector3i cubePos = pair.getKey();
+                    CompoundTag tag = pair.getValue();
+                    if(tag == null)
+                        tagMap.computeIfAbsent(new Vector2i(cubePos.getX(), cubePos.getZ()), pos -> new HashMap<>()).remove(cubePos.getY());
+                    else
+                        tagMap.computeIfAbsent(new Vector2i(cubePos.getX(), cubePos.getZ()), pos -> new HashMap<>()).put(cubePos.getY(), tag);
+                });
             }
         }
 
         return tagMap;
     }
 
-    private static boolean isCubeSrc(List<EditTask> tasks, int x, int y, int z) {
-        for (EditTask editTask : tasks) {
-            if (isCubeSrc(editTask, x, y, z))
-                return true;
-        }
-        return false;
-    }
-    private static boolean isCubeDst(List<EditTask> tasks, int x, int y, int z) {
-        for (EditTask editTask : tasks) {
-            if(isCubeDst(editTask, x, y, z))
-                return true;
-        }
-        return false;
-    }
-    private static boolean isCubeSrc(EditTask editTask, int x, int y, int z) {
-        return editTask.getSourceBox().intersects(x, y, z);
-    }
-    private static boolean isCubeDst(EditTask editTask, int x, int y, int z) {
-        if (editTask.getOffset() != null) {
-            if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
-                return true;
-        }
-
-        if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
-            return editTask.getSourceBox().intersects(x, y, z);
-        }
-        return false;
-    }
-    private static boolean isCubeDstExclusive(EditTask editTask, int x, int y, int z) {
-        if (editTask.getOffset() != null)
-            return editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z);
-        return false;
-    }
-
-    public static boolean isRegionInCopyOrPasteLoc(List<EditTask> tasks, int x, int y, int z) {
-        for(EditTask task : tasks) {
-            if (task.getSourceBox().intersects(x, y, z)) {
-                if (task.getOffset() == null) continue;
-                if (task.getSourceBox().intersects(
-                        x - task.getOffset().getX(),
-                        y - task.getOffset().getY(),
-                        z - task.getOffset().getZ())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static int nibbleGetAtIndex(byte[] arr, int index)
-    {
-        int i = index >> 1;
-        return (index & 1) == 0 ? arr[i] & 0xf : arr[i] >> 4 & 0xf;
-    }
-
-    private static void nibbleSetAtIndex(byte[] arr, int index, int value)
-    {
-        int i = index >> 1;
-
-        if ((index & 1) == 0) {
-            arr[i] = (byte)(arr[i] & 0xf0 | value & 0xf);
-        }
-        else {
-            arr[i] = (byte)(arr[i] & 0xf | (value & 0xf) << 4);
-        }
-    }
+//    private static boolean isCubeSrc(List<EditTask> tasks, int x, int y, int z) {
+//        for (EditTask editTask : tasks) {
+//            if (isCubeSrc(editTask, x, y, z))
+//                return true;
+//        }
+//        return false;
+//    }
+//    private static boolean isCubeDst(List<EditTask> tasks, int x, int y, int z) {
+//        for (EditTask editTask : tasks) {
+//            if(isCubeDst(editTask, x, y, z))
+//                return true;
+//        }
+//        return false;
+//    }
+//    private static boolean isCubeSrc(EditTask editTask, int x, int y, int z) {
+//        return editTask.getSourceBox().intersects(x, y, z);
+//    }
+//    private static boolean isCubeDst(EditTask editTask, int x, int y, int z) {
+//        if (editTask.getOffset() != null) {
+//            if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
+//                return true;
+//        }
+//
+//        if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
+//            return editTask.getSourceBox().intersects(x, y, z);
+//        }
+//        return false;
+//    }
+//    private static boolean isCubeDstExclusive(EditTask editTask, int x, int y, int z) {
+//        if (editTask.getOffset() != null)
+//            return editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z);
+//        return false;
+//    }
+//
+//    public static boolean isRegionInCopyOrPasteLoc(List<EditTask> tasks, int x, int y, int z) {
+//        for(EditTask task : tasks) {
+//            if (task.getSourceBox().intersects(x, y, z)) {
+//                if (task.getOffset() == null) continue;
+//                if (task.getSourceBox().intersects(
+//                        x - task.getOffset().getX(),
+//                        y - task.getOffset().getY(),
+//                        z - task.getOffset().getZ())) {
+//                    return true;
+//                }
+//            }
+//        }
+//        return false;
+//    }
 }

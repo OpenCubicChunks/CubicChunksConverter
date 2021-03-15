@@ -84,11 +84,10 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
         if(config.hasValue("relocations")) {
             this.regionBoundingBoxes = new ArrayList<>();
             @SuppressWarnings("unchecked") List<EditTask> tasks = (List<EditTask>) config.getValue("relocations");
+
             for (EditTask task : tasks) {
-                regionBoundingBoxes.add(task.getSourceBox().asRegionCoords(new Vector3i(16, 16, 16)));
-                if (task.getOffset() != null) {
-                    regionBoundingBoxes.add(task.getSourceBox().add(task.getOffset()).asRegionCoords(new Vector3i(16, 16, 16)));
-                }
+                task.getSrcBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                task.getDstBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
             }
         } else
             regionBoundingBoxes = null;
