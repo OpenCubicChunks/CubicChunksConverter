@@ -30,7 +30,7 @@ import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.conf.command.arguments.Vector3iArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.edittask.EditTask;
+import cubicchunks.converter.lib.util.edittask.CopyEditTask;
 import cubicchunks.converter.lib.util.Vector3i;
 
 public class CopyCommand {
@@ -41,10 +41,9 @@ public class CopyCommand {
                     .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("dst", new Vector3iArgument())
                         .executes((info) -> {
                             BoundingBox box = info.getArgument("box", BoundingBox.class);
-                            info.getSource().addEditTask(new EditTask(
+                            info.getSource().addEditTask(new CopyEditTask(
                                 box,
-                                info.getArgument("dst", Vector3i.class).sub(box.getMinPos()),
-                                EditTask.Type.COPY
+                                info.getArgument("dst", Vector3i.class).sub(box.getMinPos())
                             ));
                             return 1;
                         })
@@ -52,10 +51,9 @@ public class CopyCommand {
                 ).then(LiteralArgumentBuilder.<EditTaskContext>literal("by")
                     .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("dst", new Vector3iArgument())
                         .executes((info) -> {
-                            info.getSource().addEditTask(new EditTask(
+                            info.getSource().addEditTask(new CopyEditTask(
                                 info.getArgument("box", BoundingBox.class),
-                                info.getArgument("dst", Vector3i.class),
-                                EditTask.Type.COPY
+                                info.getArgument("dst", Vector3i.class)
                             ));
                             return 1;
                         })

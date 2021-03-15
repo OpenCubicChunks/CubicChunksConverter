@@ -4,6 +4,7 @@ import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.DualSourceCubicChunksColumnData;
+import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.edittask.EditTask;
 
 import java.nio.ByteBuffer;
@@ -32,10 +33,17 @@ public class CC2CCDualSourceMergingDataConverter implements ChunkDataConverter<D
         Map<Integer, ByteBuffer> outCubes = new HashMap<>();
         inCubes.forEach((y, cube) -> {
             for (EditTask relocateTask : relocateTasks) {
-                if(relocateTask.getSourceBox().intersects(input.getPosition().getEntryX(), y, input.getPosition().getEntryZ())) {
-                    outCubes.put(y, cube);
-                    break;
+                List<BoundingBox> srcBoxes = relocateTask.getSrcBoxes();
+                boolean foundIntersect = false;
+                for (BoundingBox box : srcBoxes) {
+                    if (box.intersects(input.getPosition().getEntryX(), y, input.getPosition().getEntryZ())) {
+                        outCubes.put(y, cube);
+                        foundIntersect = true;
+                        break;
+                    }
                 }
+                if(foundIntersect)
+                    break;
             }
         });
 
