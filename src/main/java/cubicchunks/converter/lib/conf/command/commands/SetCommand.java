@@ -13,16 +13,18 @@ public class SetCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("set")
             .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
-                .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("id", IntegerArgumentType.integer(0, 255))
-                    .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("meta", IntegerArgumentType.integer(0, 127))
-                        .executes((info) -> {
-                            info.getSource().addEditTask(new SetEditTask(
-                                info.getArgument("box", BoundingBox.class),
-                                (byte)IntegerArgumentType.getInteger(info, "id"),
-                                (byte)IntegerArgumentType.getInteger(info, "meta")
-                            ));
-                            return 1;
-                        })
+                .then(LiteralArgumentBuilder.<EditTaskContext>literal("to")
+                    .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("id", IntegerArgumentType.integer(0, 255))
+                        .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("meta", IntegerArgumentType.integer(0, 127))
+                            .executes((info) -> {
+                                info.getSource().addEditTask(new SetEditTask(
+                                    info.getArgument("box", BoundingBox.class),
+                                    (byte)IntegerArgumentType.getInteger(info, "id"),
+                                    (byte)IntegerArgumentType.getInteger(info, "meta")
+                                ));
+                                return 1;
+                            })
+                        )
                     )
                 )
             )

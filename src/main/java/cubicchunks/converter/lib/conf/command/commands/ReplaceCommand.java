@@ -13,20 +13,24 @@ public class ReplaceCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("replace")
             .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
-                .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("inId", IntegerArgumentType.integer(0, 255))
-                    .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("inMeta", IntegerArgumentType.integer(0, 127))
-                        .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("outId", IntegerArgumentType.integer(0, 255))
-                            .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("outMeta", IntegerArgumentType.integer(0, 127))
-                                .executes((info) -> {
-                                    info.getSource().addEditTask(new ReplaceEditTask(
-                                        info.getArgument("box", BoundingBox.class),
-                                        (byte) IntegerArgumentType.getInteger(info, "inId"),
-                                        (byte) IntegerArgumentType.getInteger(info, "inMeta"),
-                                        (byte) IntegerArgumentType.getInteger(info, "outId"),
-                                        (byte) IntegerArgumentType.getInteger(info, "outMeta")
-                                    ));
-                                    return 1;
-                                })
+                .then(LiteralArgumentBuilder.<EditTaskContext>literal("like")
+                    .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("inId", IntegerArgumentType.integer(0, 255))
+                        .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("inMeta", IntegerArgumentType.integer(0, 127))
+                            .then(LiteralArgumentBuilder.<EditTaskContext>literal("with")
+                                .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("outId", IntegerArgumentType.integer(0, 255))
+                                    .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("outMeta", IntegerArgumentType.integer(0, 127))
+                                        .executes((info) -> {
+                                            info.getSource().addEditTask(new ReplaceEditTask(
+                                                info.getArgument("box", BoundingBox.class),
+                                                (byte) IntegerArgumentType.getInteger(info, "inId"),
+                                                (byte) IntegerArgumentType.getInteger(info, "inMeta"),
+                                                (byte) IntegerArgumentType.getInteger(info, "outId"),
+                                                (byte) IntegerArgumentType.getInteger(info, "outMeta")
+                                            ));
+                                            return 1;
+                                        })
+                                    )
+                                )
                             )
                         )
                     )
