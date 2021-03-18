@@ -90,33 +90,21 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         EntryLocation2D inPosition = input.getPosition();
         for(Map.Entry<Integer, ByteBuffer> entry : inCubes.entrySet()) {
             boolean anyBoxNeedsData = false;
-            boolean intersectsAnyBoxes = false;
+            boolean intersectsSrcBox = false;
 
             for(EditTask task : relocateTasks) {
                 List<BoundingBox> srcBoxes = task.getSrcBoxes();
                 for (BoundingBox srcBox : srcBoxes) {
                     if(srcBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
-                        intersectsAnyBoxes = true;
+                        intersectsSrcBox = true;
                         if(task.readsCubeData()) {
                             anyBoxNeedsData = true;
                             break;
                         }
                     }
                 }
-
-                List<BoundingBox> dstBoxes = task.getDstBoxes();
-                for (BoundingBox dstBox : dstBoxes) {
-                    if(dstBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
-                        intersectsAnyBoxes = true;
-                        if(task.readsCubeData()) {
-                            anyBoxNeedsData = true;
-                            break;
-                        }
-                    }
-                }
-
             }
-            if(intersectsAnyBoxes) {
+            if(intersectsSrcBox) {
                 if (anyBoxNeedsData)
                     cubes.put(entry.getKey(), entry.getValue());
                 else
@@ -147,10 +135,10 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             }
             if (!noReadCubes.isEmpty()) {
                 CubicChunksColumnData currentColumnData = columnData.stream()
-                        .filter(x -> x.getPosition().equals(inPosition))
-                        .findAny()
-                        .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>()));
-                currentColumnData.getCubeData().putAll(noReadCubes);
+                    .filter(x -> x.getPosition().equals(inPosition))
+                    .findAny()
+                    .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>()));
+                noReadCubes.forEach((yPos, buffer) -> currentColumnData.getCubeData().putIfAbsent(yPos, buffer));
                 columnData.add(currentColumnData);
             }
             return columnData;
