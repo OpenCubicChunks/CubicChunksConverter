@@ -50,8 +50,7 @@ public class ReplaceEditTask extends BaseEditTask {
         this.outBlockMeta = outBlockMeta;
     }
 
-    @Nonnull
-    @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
         List<ImmutablePair<Vector3i, CompoundTag>> outCubes = new ArrayList<>();
 
         Vector3i pos = cube.getKey();
@@ -64,6 +63,8 @@ public class ReplaceEditTask extends BaseEditTask {
         CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
         entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
         entryLevel.put(new ByteTag("initLightDone", (byte) 0));
+        entryLevel.put(new ByteTag("populated", (byte) 1));
+        entryLevel.put(new ByteTag("fullyPopulated", (byte) 1));
 
         CompoundMap sectionDetails;
         try {

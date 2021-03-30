@@ -28,13 +28,11 @@ import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
-import cubicchunks.converter.lib.util.Vector2i;
 import cubicchunks.converter.lib.util.Vector3i;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 public class SetEditTask extends BaseEditTask {
@@ -61,6 +59,8 @@ public class SetEditTask extends BaseEditTask {
         CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
         entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
         entryLevel.put(new ByteTag("initLightDone", (byte) 0));
+        entryLevel.put(new ByteTag("populated", (byte) 1));
+        entryLevel.put(new ByteTag("fullyPopulated", (byte) 1));
 
         CompoundMap sectionDetails;
         try {
