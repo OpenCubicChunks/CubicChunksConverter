@@ -73,6 +73,8 @@ public class CutEditTask extends BaseEditTask {
 
                 srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
                 srcLevel.put(new ByteTag("initLightDone", (byte) 0));
+                srcLevel.put(new ByteTag("populated", (byte) 1));
+                srcLevel.put(new ByteTag("fullyPopulated", (byte) 1));
 
                 outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), tag));
             }
@@ -86,6 +88,11 @@ public class CutEditTask extends BaseEditTask {
                 level.put(new IntTag("x", dstX));
                 level.put(new IntTag("y", dstY));
                 level.put(new IntTag("z", dstZ));
+
+                level.put(new ByteTag("isSurfaceTracked", (byte) 0));
+                level.put(new ByteTag("initLightDone", (byte) 0));
+                level.put(new ByteTag("populated", (byte) 1));
+                level.put(new ByteTag("fullyPopulated", (byte) 1));
 
                 outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), cubeTag));
             }
