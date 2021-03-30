@@ -23,7 +23,9 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
+import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import com.flowpowered.nbt.IntTag;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -38,12 +40,28 @@ public class MoveEditTask extends BaseEditTask {
     public MoveEditTask(BoundingBox srcBox, Vector3i dstOffset) {
         srcBoxes.add(srcBox);
         dstBoxes.add(srcBox.add(dstOffset));
+        dstBoxes.add(srcBox);
         offset = dstOffset;
     }
 
     @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
         List<ImmutablePair<Vector3i, CompoundTag>> outCubes = new ArrayList<>();
-        outCubes.add(new ImmutablePair<>(cube.getKey().add(offset), cube.getValue()));
+
+        Vector3i cubePos = cube.getKey();
+
+        if(dstBoxes.get(0).intersects(cubePos.getX(), cubePos.getY(), cubePos.getZ())) {
+            outCubes.add(new ImmutablePair<>(cubePos, null));
+            return outCubes;
+        }
+        CompoundMap level = (CompoundMap) cube.getValue().getValue().get("Level").getValue();
+
+        Vector3i dstPos = cubePos.add(offset);
+        level.put(new IntTag("x", dstPos.getX()));
+        level.put(new IntTag("y", dstPos.getY()));
+        level.put(new IntTag("z", dstPos.getZ()));
+
+        outCubes.add(new ImmutablePair<>(dstPos, cube.getValue()));
+        outCubes.add(new ImmutablePair<>(cubePos, null));
         return outCubes;
     }
 }

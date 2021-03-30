@@ -35,10 +35,10 @@ import java.util.List;
 public class RemoveEditTask extends BaseEditTask {
     public RemoveEditTask(BoundingBox srcBox) {
         srcBoxes.add(srcBox);
+        dstBoxes.add(srcBox);
     }
 
-    @Nonnull
-    @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
         List<ImmutablePair<Vector3i, CompoundTag>> cubes = new ArrayList<>(1);
         cubes.add(new ImmutablePair<>(cube.getKey(), null));
         return cubes;
