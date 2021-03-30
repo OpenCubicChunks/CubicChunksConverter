@@ -135,8 +135,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             }
             if (!noReadCubes.isEmpty()) {
                 CubicChunksColumnData currentColumnData = columnData.stream()
-                    .filter(x -> x.getPosition().equals(inPosition))
-                    .findAny()
+                    .filter(column -> column.getPosition().equals(inPosition)).findAny()
                     .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>()));
                 noReadCubes.forEach((yPos, buffer) -> currentColumnData.getCubeData().putIfAbsent(yPos, buffer));
                 columnData.add(currentColumnData);
@@ -165,12 +164,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
             int cubeX = (Integer) level.get("x").getValue();
             int cubeY = (Integer) level.get("y").getValue();
             int cubeZ = (Integer) level.get("z").getValue();
-
-            //TODO: figure out why this is needed
-//            if(!isCubeSrc(this.relocateTasks, cubeX, cubeY, cubeZ) && !isCubeDst(this.relocateTasks, cubeX, cubeY, cubeZ)) {
-//                tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, entry.getValue());
-//                continue;
-//            }
 
             for (EditTask task : this.relocateTasks) {
                 if(!task.readsCubeData()) {
@@ -202,53 +195,4 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
 
         return tagMap;
     }
-
-//    private static boolean isCubeSrc(List<EditTask> tasks, int x, int y, int z) {
-//        for (EditTask editTask : tasks) {
-//            if (isCubeSrc(editTask, x, y, z))
-//                return true;
-//        }
-//        return false;
-//    }
-//    private static boolean isCubeDst(List<EditTask> tasks, int x, int y, int z) {
-//        for (EditTask editTask : tasks) {
-//            if(isCubeDst(editTask, x, y, z))
-//                return true;
-//        }
-//        return false;
-//    }
-//    private static boolean isCubeSrc(EditTask editTask, int x, int y, int z) {
-//        return editTask.getSourceBox().intersects(x, y, z);
-//    }
-//    private static boolean isCubeDst(EditTask editTask, int x, int y, int z) {
-//        if (editTask.getOffset() != null) {
-//            if (editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z))
-//                return true;
-//        }
-//
-//        if(editTask.getType() == EditTask.Type.CUT || editTask.getType() == EditTask.Type.REMOVE) {
-//            return editTask.getSourceBox().intersects(x, y, z);
-//        }
-//        return false;
-//    }
-//    private static boolean isCubeDstExclusive(EditTask editTask, int x, int y, int z) {
-//        if (editTask.getOffset() != null)
-//            return editTask.getSourceBox().add(editTask.getOffset()).intersects(x, y, z);
-//        return false;
-//    }
-//
-//    public static boolean isRegionInCopyOrPasteLoc(List<EditTask> tasks, int x, int y, int z) {
-//        for(EditTask task : tasks) {
-//            if (task.getSourceBox().intersects(x, y, z)) {
-//                if (task.getOffset() == null) continue;
-//                if (task.getSourceBox().intersects(
-//                        x - task.getOffset().getX(),
-//                        y - task.getOffset().getY(),
-//                        z - task.getOffset().getZ())) {
-//                    return true;
-//                }
-//            }
-//        }
-//        return false;
-//    }
 }
