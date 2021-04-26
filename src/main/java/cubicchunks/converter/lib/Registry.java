@@ -33,18 +33,24 @@ import cubicchunks.converter.lib.convert.ChunkDataWriter;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCDataConverter;
 import cubicchunks.converter.lib.convert.anvil2cc.Anvil2CCLevelInfoConverter;
+import cubicchunks.converter.lib.convert.cc2bigCubeCc.Cc2BigCubeCcDataConverter;
+import cubicchunks.converter.lib.convert.cc2bigCubeCc.Cc2BigCubeCcLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
 import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
+import cubicchunks.converter.lib.convert.data.CubicChunksBigCube112Data;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.CubicChunksProtoBigCubeData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
 import cubicchunks.converter.lib.convert.data.RobintonColumnData;
 import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
 import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
 import cubicchunks.converter.lib.convert.io.CubicChunkReader;
 import cubicchunks.converter.lib.convert.io.CubicChunkWriter;
+import cubicchunks.converter.lib.convert.io.CubicChunksBigCube112Reader;
+import cubicchunks.converter.lib.convert.io.CubicChunksProtoBigCubeWriter;
 import cubicchunks.converter.lib.convert.io.RobintonChunkReader;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
@@ -70,16 +76,19 @@ public class Registry {
 
     static {
         registerReader("Anvil", AnvilChunkReader::new, AnvilChunkData.class);
-        registerReader("CubicChunks", CubicChunkReader::new, CubicChunksColumnData.class);
+        registerReader("CubicChunks 1-10 - 1.12", CubicChunkReader::new, CubicChunksColumnData.class);
         registerReader("RobintonCubicChunks", RobintonChunkReader::new, RobintonColumnData.class);
+        registerReader("CubicChunks 1.10 - 1.12 (BigCube)", CubicChunksBigCube112Reader::new, CubicChunksBigCube112Data.class);
 
         registerWriter("Anvil", AnvilChunkWriter::new, MultilayerAnvilChunkData.class);
-        registerWriter("CubicChunks", CubicChunkWriter::new, CubicChunksColumnData.class);
+        registerWriter("CubicChunks 1.10 - 1.12", CubicChunkWriter::new, CubicChunksColumnData.class);
+        registerWriter("CubicChunks 1.17+ (ProtoBigCube)", CubicChunksProtoBigCubeWriter::new, CubicChunksProtoBigCubeData.class);
 
         registerConverter("Default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
         registerConverter("Relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CC2CCRelocatingDataConverter::loadConfig, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
         registerConverter("Default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);
+        registerConverter("Default", Cc2BigCubeCcDataConverter::new, Cc2BigCubeCcLevelInfoConverter::new, CubicChunksBigCube112Data.class, CubicChunksProtoBigCubeData.class, Cc2BigCubeCcDataConverter.class);
     }
 
     // can't have all named register because of type erasure
