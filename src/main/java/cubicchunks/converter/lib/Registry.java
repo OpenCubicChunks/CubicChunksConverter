@@ -64,7 +64,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class Registry {
-    private static final String ID_PATTERN = "[a-z][a-z_0-9.]*";
+    private static final String ID_PATTERN = "[a-z][a-z_0-9]*(:[a-z0-9_.-]+)?";
 
     private static final BiMap<String, BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<?>>> readersByName = Maps.synchronizedBiMap(HashBiMap.create());
     private static final BiMap<String, BiFunction<Path, ConverterConfig, ? extends ChunkDataReader<?>>> readersById = Maps.synchronizedBiMap(HashBiMap.create());
@@ -82,13 +82,13 @@ public class Registry {
 
     static {
         registerReader("Anvil", "anvil", AnvilChunkReader::new, AnvilChunkData.class);
-        registerReader("CubicChunks 1.10 - 1.12", "cubicchunks_1.10_1.12", CubicChunkReader::new, CubicChunksColumnData.class);
+        registerReader("CubicChunks 1.10 - 1.12", "cubicchunks:1.10-1.12", CubicChunkReader::new, CubicChunksColumnData.class);
         registerReader("RobintonCubicChunks", "robinton_cubicchunks", RobintonChunkReader::new, RobintonColumnData.class);
-        registerReader("CubicChunks 1.10 - 1.12 (BigCube)", "cubicchunks_1.10_1.12_bigcube", CubicChunksBigCube112Reader::new, CubicChunksBigCube112Data.class);
+        registerReader("CubicChunks 1.10 - 1.12 (BigCube)", "cubicchunks_bigcube:1.10-1.12", CubicChunksBigCube112Reader::new, CubicChunksBigCube112Data.class);
 
         registerWriter("Anvil", "anvil", AnvilChunkWriter::new, MultilayerAnvilChunkData.class);
-        registerWriter("CubicChunks 1.10 - 1.12", "cubicchunks_1.10_1.12", CubicChunkWriter::new, CubicChunksColumnData.class);
-        registerWriter("CubicChunks 1.17+ (ProtoBigCube)", "cubicchunks_1.17", CubicChunksProtoBigCubeWriter::new, CubicChunksProtoBigCubeData.class);
+        registerWriter("CubicChunks 1.10 - 1.12", "cubicchunks:1.10-1.12", CubicChunkWriter::new, CubicChunksColumnData.class);
+        registerWriter("CubicChunks 1.17+ (ProtoBigCube)", "cubicchunks:1.17", CubicChunksProtoBigCubeWriter::new, CubicChunksProtoBigCubeData.class);
 
         registerConverter("Default", "default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", "default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
