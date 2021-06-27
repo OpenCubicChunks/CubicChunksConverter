@@ -95,10 +95,10 @@ public class HeadlessConverter {
         }
 
         WorldConverter<?, ?> converter = new WorldConverter<>(
-            Registry.getLevelConverter(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(context.getSrcWorld(), context.getDstWorld()),
-            Registry.getReader(context.getInFormat()).apply(context.getSrcWorld(), conf),
-            Registry.getConverter(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(conf),
-            Registry.getWriter(context.getOutFormat()).apply(context.getDstWorld())
+            Registry.getLevelConverterById(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(context.getSrcWorld(), context.getDstWorld()),
+            Registry.getReaderById(context.getInFormat()).apply(context.getSrcWorld(), conf),
+            Registry.getConverterById(context.getInFormat(), context.getOutFormat(), context.getConverterName()).apply(conf),
+            Registry.getWriterById(context.getOutFormat()).apply(context.getDstWorld())
         );
 
         HeadlessWorker w = new HeadlessWorker(converter, HeadlessConverter::done, () -> failed.set(true));

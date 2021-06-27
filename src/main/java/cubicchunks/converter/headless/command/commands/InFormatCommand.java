@@ -26,26 +26,24 @@ package cubicchunks.converter.headless.command.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import cubicchunks.converter.headless.command.HeadlessCommandContext;
+import cubicchunks.converter.lib.Registry;
+
+import java.util.stream.StreamSupport;
 
 public class InFormatCommand {
     public static void register(CommandDispatcher<HeadlessCommandContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("inFormat")
-            .then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Anvil")
-                .executes((context) -> {
-                    context.getSource().setInFormat("Anvil");
-                    return 1;
-                })
-            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("CubicChunks")
-                .executes((context) -> {
-                    context.getSource().setInFormat("CubicChunks");
-                    return 1;
-                })
-            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("RobintonCubicChunks")
-                .executes((context) -> {
-                    context.getSource().setInFormat("RobintonCubicChunks");
-                    return 1;
-                })
-            )
-        );
+        dispatcher.register(StreamSupport.stream(Registry.getReaders().spliterator(), false)
+                .map(Registry::getReaderClass)
+                .map(Registry::getReaderId)
+                .distinct()
+                .reduce(LiteralArgumentBuilder.literal("inFormat"),
+                        (builder, name) -> builder.then(LiteralArgumentBuilder.<HeadlessCommandContext>literal(name)
+                                .executes(context -> {
+                                    context.getSource().setInFormat(name);
+                                    return 1;
+                                })),
+                        (a, b) -> {
+                            throw new UnsupportedOperationException();
+                        }));
     }
 }
