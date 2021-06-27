@@ -26,21 +26,24 @@ package cubicchunks.converter.headless.command.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import cubicchunks.converter.headless.command.HeadlessCommandContext;
+import cubicchunks.converter.lib.Registry;
+
+import java.util.stream.StreamSupport;
 
 public class OutFormatCommand {
     public static void register(CommandDispatcher<HeadlessCommandContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("outFormat")
-            .then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Anvil")
-                .executes((context) -> {
-                    context.getSource().setOutFormat("Anvil");
-                    return 1;
-                })
-            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("CubicChunks")
-                .executes((context) -> {
-                    context.getSource().setOutFormat("CubicChunks");
-                    return 1;
-                })
-            )
-        );
+        dispatcher.register(StreamSupport.stream(Registry.getWriters().spliterator(), false)
+                .map(Registry::getWriterClass)
+                .map(Registry::getWriterId)
+                .distinct()
+                .reduce(LiteralArgumentBuilder.literal("outFormat"),
+                        (builder, name) -> builder.then(LiteralArgumentBuilder.<HeadlessCommandContext>literal(name)
+                                .executes(context -> {
+                                    context.getSource().setOutFormat(name);
+                                    return 1;
+                                })),
+                        (a, b) -> {
+                            throw new UnsupportedOperationException();
+                        }));
     }
 }

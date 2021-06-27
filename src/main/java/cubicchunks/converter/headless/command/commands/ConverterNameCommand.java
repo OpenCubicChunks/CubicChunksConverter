@@ -26,21 +26,26 @@ package cubicchunks.converter.headless.command.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import cubicchunks.converter.headless.command.HeadlessCommandContext;
+import cubicchunks.converter.lib.Registry;
+
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class ConverterNameCommand {
     public static void register(CommandDispatcher<HeadlessCommandContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<HeadlessCommandContext>literal("converter")
-            .then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Default")
-                .executes((context) -> {
-                    context.getSource().setConverterName("Default");
-                    return 1;
-                })
-            ).then(LiteralArgumentBuilder.<HeadlessCommandContext>literal("Relocating")
-                .executes((context) -> {
-                    context.getSource().setConverterName("Relocating");
-                    return 1;
-                })
-            )
-        );
+        dispatcher.register(StreamSupport.stream(Registry.getConverters().spliterator(), false)
+                .map(Registry.ClassTriple::getConverter)
+                .map(Registry::getConverterId)
+                .distinct()
+                .reduce(LiteralArgumentBuilder.literal("converter"),
+                        (builder, name) -> builder.then(LiteralArgumentBuilder.<HeadlessCommandContext>literal(name)
+                                .executes(context -> {
+                                    context.getSource().setConverterName(name);
+                                    return 1;
+                                })),
+                        (a, b) -> {
+                            throw new UnsupportedOperationException();
+                        }));
     }
 }

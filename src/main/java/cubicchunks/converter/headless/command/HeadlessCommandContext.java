@@ -31,7 +31,7 @@ public class HeadlessCommandContext {
 
     private String inFormat;
     private String outFormat;
-    private String converterName = "Default";
+    private String converterName = "default";
 
     public Path getSrcWorld() {
         return srcWorld;
