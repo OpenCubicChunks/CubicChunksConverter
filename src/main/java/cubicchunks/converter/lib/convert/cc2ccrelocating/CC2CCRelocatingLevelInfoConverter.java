@@ -25,13 +25,13 @@ package cubicchunks.converter.lib.convert.cc2ccrelocating;
 
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
-import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.Utils;
 
 import java.io.IOException;
 import java.nio.file.Path;
 
-public class CC2CCRelocatingLevelInfoConverter implements LevelInfoConverter<CubicChunksColumnData, CubicChunksColumnData> {
+public class CC2CCRelocatingLevelInfoConverter implements LevelInfoConverter<PriorityCubicChunksColumnData, PriorityCubicChunksColumnData> {
 
     private final Path srcDir;
     private final Path dstDir;

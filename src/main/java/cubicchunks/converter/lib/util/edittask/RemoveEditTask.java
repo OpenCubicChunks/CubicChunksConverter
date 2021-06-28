@@ -38,9 +38,9 @@ public class RemoveEditTask extends BaseEditTask {
         dstBoxes.add(srcBox);
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
-        List<ImmutablePair<Vector3i, CompoundTag>> cubes = new ArrayList<>(1);
-        cubes.add(new ImmutablePair<>(cube.getKey(), null));
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> cubes = new ArrayList<>(1);
+        cubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
         return cubes;
     }
 }

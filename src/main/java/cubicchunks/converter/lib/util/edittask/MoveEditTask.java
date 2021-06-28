@@ -44,24 +44,22 @@ public class MoveEditTask extends BaseEditTask {
         offset = dstOffset;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
-        List<ImmutablePair<Vector3i, CompoundTag>> outCubes = new ArrayList<>();
-
-        Vector3i cubePos = cube.getKey();
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         if(dstBoxes.get(0).intersects(cubePos.getX(), cubePos.getY(), cubePos.getZ())) {
-            outCubes.add(new ImmutablePair<>(cubePos, null));
+            outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
             return outCubes;
         }
-        CompoundMap level = (CompoundMap) cube.getValue().getValue().get("Level").getValue();
+        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
 
         Vector3i dstPos = cubePos.add(offset);
         level.put(new IntTag("x", dstPos.getX()));
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
 
-        outCubes.add(new ImmutablePair<>(dstPos, cube.getValue()));
-        outCubes.add(new ImmutablePair<>(cubePos, null));
+        outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
+        outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
         return outCubes;
     }
 }

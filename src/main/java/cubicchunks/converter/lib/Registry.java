@@ -40,12 +40,7 @@ import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConv
 import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingLevelInfoConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
-import cubicchunks.converter.lib.convert.data.AnvilChunkData;
-import cubicchunks.converter.lib.convert.data.CubicChunksBigCube112Data;
-import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
-import cubicchunks.converter.lib.convert.data.CubicChunksProtoBigCubeData;
-import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
-import cubicchunks.converter.lib.convert.data.RobintonColumnData;
+import cubicchunks.converter.lib.convert.data.*;
 import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
 import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
 import cubicchunks.converter.lib.convert.io.CubicChunkReader;
@@ -92,7 +87,7 @@ public class Registry {
 
         registerConverter("Default", "default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", "default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
-        registerConverter("Relocating", "relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CC2CCRelocatingDataConverter::loadConfig, CubicChunksColumnData.class, CubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
+        registerConverter("Relocating", "relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CC2CCRelocatingDataConverter::loadConfig, PriorityCubicChunksColumnData.class, PriorityCubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
         registerConverter("Default", "default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);
         registerConverter("Default", "default", Cc2BigCubeCcDataConverter::new, Cc2BigCubeCcLevelInfoConverter::new, CubicChunksBigCube112Data.class, CubicChunksProtoBigCubeData.class, Cc2BigCubeCcDataConverter.class);
     }

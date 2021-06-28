@@ -39,4 +39,12 @@ public class ImmutablePair<K, V> {
     public V getValue() {
         return value;
     }
+
+    public K getFirst() {
+        return key;
+    }
+
+    public V getSecond() {
+        return value;
+    }
 }

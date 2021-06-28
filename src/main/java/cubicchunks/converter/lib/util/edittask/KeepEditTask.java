@@ -29,7 +29,6 @@ import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.List;
 
 public class KeepEditTask extends BaseEditTask {
@@ -37,10 +36,8 @@ public class KeepEditTask extends BaseEditTask {
         srcBoxes.add(srcBox);
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
-        List<ImmutablePair<Vector3i, CompoundTag>> cubes = new ArrayList<>(1);
-        cubes.add(cube);
-        return cubes;
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        throw new IllegalStateException("KeepEditTask actOnCube should never be called as it doesn't request cube data");
     }
 
     @Override public boolean readsCubeData() {

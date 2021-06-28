@@ -35,18 +35,18 @@ import java.util.List;
 
 public interface EditTask {
     /**
-     * @param cube The cube to be modified. The {@link Vector3i} is in cube coordinates, not block
+     * @param cubeTag The cube to be modified. The {@link Vector3i} is in cube coordinates, not block
      * @return The modified cube/s. The {@link CompoundMap} can be null, if so the cube will be regenerated the next time it's loaded by the game
      */
-    @Nonnull List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube);
+    @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority);
 
     /**
-     * @return A list of bounding boxes describing which cubes this task wants to recieve in {@link EditTask#actOnCube(ImmutablePair)}
+     * @return A list of bounding boxes describing which cubes this task wants to recieve in {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
      */
     @Nonnull List<BoundingBox> getSrcBoxes();
 
     /**
-     * @return A list of bounding boxes describing which cubes this task will modify from {@link EditTask#actOnCube(ImmutablePair)}
+     * @return A list of bounding boxes describing which cubes this task will modify from {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
      */
     @Nonnull List<BoundingBox> getDstBoxes();
 
@@ -60,7 +60,7 @@ public interface EditTask {
     }
 
     /**
-     * @return Whether this task requires the cube data at all. If this returns false {@link EditTask#actOnCube(ImmutablePair)}
+     * @return Whether this task requires the cube data at all. If this returns false {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
      * will never be called. Only {@link EditTask#getSrcBoxes()}
      * This is used in tasks such as {@link KeepEditTask}, as no cube data is required.
      */

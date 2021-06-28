@@ -50,15 +50,8 @@ public class ReplaceEditTask extends BaseEditTask {
         this.outBlockMeta = outBlockMeta;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
-        List<ImmutablePair<Vector3i, CompoundTag>> outCubes = new ArrayList<>();
-
-        Vector3i pos = cube.getKey();
-        CompoundTag cubeTag = cube.getValue();
-
-        int cubeX = pos.getX();
-        int cubeY = pos.getY();
-        int cubeZ = pos.getZ();
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
         entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
@@ -70,7 +63,7 @@ public class ReplaceEditTask extends BaseEditTask {
         try {
             sectionDetails = ((CompoundTag)((List<?>) (entryLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
         } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
-            LOGGER.warning("Malformed cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
             return outCubes;
         }
 
@@ -84,7 +77,7 @@ public class ReplaceEditTask extends BaseEditTask {
             }
         }
 
-        outCubes.add(new ImmutablePair<>(cube.getKey(), cube.getValue()));
+        outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
         return outCubes;
     }
 }

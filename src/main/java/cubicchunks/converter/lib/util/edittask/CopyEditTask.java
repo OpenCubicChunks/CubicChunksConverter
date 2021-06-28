@@ -23,15 +23,12 @@ public class CopyEditTask extends BaseEditTask {
         offset = dstOffset;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, CompoundTag>> actOnCube(ImmutablePair<Vector3i, CompoundTag> cube) {
-        List<ImmutablePair<Vector3i, CompoundTag>> outCubes = new ArrayList<>();
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        Vector3i pos = cube.getKey();
-        CompoundTag cubeTag = cube.getValue();
-
-        int cubeX = pos.getX();
-        int cubeY = pos.getY();
-        int cubeZ = pos.getZ();
+        int cubeX = cubePos.getX();
+        int cubeY = cubePos.getY();
+        int cubeZ = cubePos.getZ();
 
         try {
             if(!dstBoxes.get(0).intersects(cubeX, cubeY, cubeZ)) {
@@ -44,7 +41,7 @@ public class CopyEditTask extends BaseEditTask {
                 CompoundTag tag = (CompoundTag) is.readTag();
                 //copy done here ^
 
-                outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), tag));
+                outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, tag)));
             }
 
             CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
@@ -61,7 +58,7 @@ public class CopyEditTask extends BaseEditTask {
             level.put(new ByteTag("populated", (byte) 1));
             level.put(new ByteTag("fullyPopulated", (byte) 1));
 
-            outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), cubeTag));
+            outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
         } catch (IOException ignored) {
 
         }

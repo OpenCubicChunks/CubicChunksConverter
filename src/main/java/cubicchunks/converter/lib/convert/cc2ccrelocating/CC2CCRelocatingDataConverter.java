@@ -28,7 +28,7 @@ import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.conf.command.EditTaskCommands;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
-import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
@@ -45,7 +45,7 @@ import java.util.logging.Logger;
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 
-public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChunksColumnData, CubicChunksColumnData> {
+public class CC2CCRelocatingDataConverter implements ChunkDataConverter<PriorityCubicChunksColumnData, PriorityCubicChunksColumnData> {
 
     private final List<EditTask> relocateTasks;
 
@@ -81,14 +81,14 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         return context.getTasks();
     }
 
-    @Override public Set<CubicChunksColumnData> convert(CubicChunksColumnData input) {
-        Map<Integer, ByteBuffer> inCubes = input.getCubeData();
-        Map<Integer, ByteBuffer> cubes = new HashMap<>();
+    @Override public Set<PriorityCubicChunksColumnData> convert(PriorityCubicChunksColumnData input) {
+        Map<Integer, ImmutablePair<Long, ByteBuffer>> inCubes = input.getCubeData();
+        Map<Integer, ImmutablePair<Long, ByteBuffer>> cubes = new HashMap<>();
 
         //Split out cubes that are only in a keep tasked bounding box
-        Map<Integer, ByteBuffer> noReadCubes = new HashMap<>();
+        Map<Integer, ImmutablePair<Long, ByteBuffer>> noReadCubes = new HashMap<>();
         EntryLocation2D inPosition = input.getPosition();
-        for(Map.Entry<Integer, ByteBuffer> entry : inCubes.entrySet()) {
+        for(Map.Entry<Integer, ImmutablePair<Long, ByteBuffer>> entry : inCubes.entrySet()) {
             boolean anyBoxNeedsData = false;
             boolean intersectsSrcBox = false;
 
@@ -113,30 +113,30 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 noReadCubes.put(entry.getKey(), entry.getValue());
         }
 
-        Map<Integer, CompoundTag> inCubeData = new HashMap<>();
+        Map<Integer, ImmutablePair<Long, CompoundTag>> inCubeData = new HashMap<>();
         cubes.forEach((key, value) -> {
             try {
-                inCubeData.put(key, readCompressedCC(new ByteArrayInputStream(value.array())));
+                inCubeData.put(key, new ImmutablePair<>(value.getKey(), readCompressedCC(new ByteArrayInputStream(value.getValue().array()))));
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
 
         try {
-            Map<Vector2i, Map<Integer, CompoundTag>> outCubeData = relocateCubeData(inCubeData);
+            Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(inCubeData);
 
-            Set<CubicChunksColumnData> columnData = new HashSet<>();
-            for (Map.Entry<Vector2i, Map<Integer, CompoundTag>> entry : outCubeData.entrySet()) {
+            Set<PriorityCubicChunksColumnData> columnData = new HashSet<>();
+            for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
                 Vector2i key = entry.getKey();
                 ByteBuffer column = key.getX() != inPosition.getEntryX() || key.getY() != inPosition.getEntryZ() ? null : input.getColumnData();
 
                 EntryLocation2D location = new EntryLocation2D(key.getX(), key.getY());
-                columnData.add(new CubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue())));
+                columnData.add(new PriorityCubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue()), true));
             }
             if (!noReadCubes.isEmpty()) {
-                CubicChunksColumnData currentColumnData = columnData.stream()
+                PriorityCubicChunksColumnData currentColumnData = columnData.stream()
                     .filter(column -> column.getPosition().equals(inPosition)).findAny()
-                    .orElseGet(() -> new CubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>()));
+                    .orElseGet(() -> new PriorityCubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>(), true));
                 noReadCubes.forEach((yPos, buffer) -> currentColumnData.getCubeData().putIfAbsent(yPos, buffer));
                 columnData.add(currentColumnData);
             }
@@ -147,19 +147,19 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
         }
     }
 
-    Map<Integer, ByteBuffer> compressCubeData(Map<Integer, CompoundTag> cubeData) throws IOException {
-        Map<Integer, ByteBuffer> compressedData = new HashMap<>();
-        for(Map.Entry<Integer, CompoundTag> entry : cubeData.entrySet()) {
-            compressedData.put(entry.getKey(), writeCompressed(entry.getValue(), false));
+    Map<Integer, ImmutablePair<Long, ByteBuffer>> compressCubeData(Map<Integer, ImmutablePair<Long, CompoundTag>> cubeData) throws IOException {
+        Map<Integer, ImmutablePair<Long, ByteBuffer>> compressedData = new HashMap<>();
+        for(Map.Entry<Integer, ImmutablePair<Long, CompoundTag>> entry : cubeData.entrySet()) {
+            compressedData.put(entry.getKey(), new ImmutablePair<>(entry.getValue().getKey(), writeCompressed(entry.getValue().getValue(), false)));
         }
         return compressedData;
     }
 
-    Map<Vector2i, Map<Integer, CompoundTag>> relocateCubeData(Map<Integer, CompoundTag> cubeDataOld) throws IOException {
-        Map<Vector2i, Map<Integer, CompoundTag>> tagMap = new HashMap<>();
+    Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> relocateCubeData(Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld) throws IOException {
+        Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> tagMap = new HashMap<>();
 
-        for(Map.Entry<Integer, CompoundTag> entry : cubeDataOld.entrySet()) {
-            CompoundMap level = (CompoundMap)entry.getValue().getValue().get("Level").getValue();
+        for(Map.Entry<Integer, ImmutablePair<Long, CompoundTag>> entry : cubeDataOld.entrySet()) {
+            CompoundMap level = (CompoundMap)entry.getValue().getValue().getValue().get("Level").getValue();
 
             int cubeX = (Integer) level.get("x").getValue();
             int cubeY = (Integer) level.get("y").getValue();
@@ -180,15 +180,15 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                 if(!cubeIsSrc)
                     continue;
 
-                List<ImmutablePair<Vector3i, CompoundTag>> outputCubes = task.actOnCube(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), entry.getValue()));
+                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), entry.getValue().getValue(), entry.getKey());
 
-                outputCubes.forEach(pair -> {
-                    Vector3i cubePos = pair.getKey();
-                    CompoundTag tag = pair.getValue();
-                    if(tag == null)
+                outputCubes.forEach(positionTagPriority -> {
+                    Vector3i cubePos = positionTagPriority.getKey();
+                    ImmutablePair<Long, CompoundTag> tagPriority = positionTagPriority.getValue();
+                    if(tagPriority.getValue() == null)
                         tagMap.computeIfAbsent(new Vector2i(cubePos.getX(), cubePos.getZ()), pos -> new HashMap<>()).remove(cubePos.getY());
                     else
-                        tagMap.computeIfAbsent(new Vector2i(cubePos.getX(), cubePos.getZ()), pos -> new HashMap<>()).put(cubePos.getY(), tag);
+                        tagMap.computeIfAbsent(new Vector2i(cubePos.getX(), cubePos.getZ()), pos -> new HashMap<>()).put(cubePos.getY(), tagPriority);
                 });
             }
         }
