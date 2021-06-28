@@ -245,4 +245,9 @@ public class RWLockingCachedRegionProvider<K extends IKey<K>> implements IRegion
             lock.writeLock().unlock();
         }
     }
+
+    @Override
+    public void flush() throws IOException {
+        clearRegions();
+    }
 }

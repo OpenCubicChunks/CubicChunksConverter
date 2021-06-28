@@ -62,6 +62,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCubicChunksColumnData, DualSourceSaveCubeColumns> {
 
@@ -255,7 +256,7 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
     }
 
     @Override
-    public void loadChunks(Consumer<? super DualSourceCubicChunksColumnData> consumer) throws IOException, InterruptedException {
+    public void loadChunks(Consumer<? super DualSourceCubicChunksColumnData> consumer, Predicate<Throwable> errorHandler) throws IOException, InterruptedException {
         try {
             ChunkList list = chunkList.get();
             if (list == null) {
