@@ -41,13 +41,7 @@ import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingLevelInf
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilDataConverter;
 import cubicchunks.converter.lib.convert.cc2anvil.CC2AnvilLevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.*;
-import cubicchunks.converter.lib.convert.io.AnvilChunkReader;
-import cubicchunks.converter.lib.convert.io.AnvilChunkWriter;
-import cubicchunks.converter.lib.convert.io.CubicChunkReader;
-import cubicchunks.converter.lib.convert.io.CubicChunkWriter;
-import cubicchunks.converter.lib.convert.io.CubicChunksBigCube112Reader;
-import cubicchunks.converter.lib.convert.io.CubicChunksProtoBigCubeWriter;
-import cubicchunks.converter.lib.convert.io.RobintonChunkReader;
+import cubicchunks.converter.lib.convert.io.*;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCConverter;
 import cubicchunks.converter.lib.convert.robinton2cc.Robinton2CCLevelInfoConverter;
 
@@ -78,11 +72,13 @@ public class Registry {
     static {
         registerReader("Anvil", "anvil", AnvilChunkReader::new, AnvilChunkData.class);
         registerReader("CubicChunks 1.10 - 1.12", "cubicchunks:1.10-1.12", CubicChunkReader::new, CubicChunksColumnData.class);
+        registerReader("CubicChunks 1.10 - 1.12 - Relocating", "cubicchunks:1.10-1.12-relocating", PriorityCubicChunkReader::new, PriorityCubicChunksColumnData.class);
         registerReader("RobintonCubicChunks", "robinton_cubicchunks", RobintonChunkReader::new, RobintonColumnData.class);
         registerReader("CubicChunks 1.10 - 1.12 (BigCube)", "cubicchunks_bigcube:1.10-1.12", CubicChunksBigCube112Reader::new, CubicChunksBigCube112Data.class);
 
         registerWriter("Anvil", "anvil", AnvilChunkWriter::new, MultilayerAnvilChunkData.class);
         registerWriter("CubicChunks 1.10 - 1.12", "cubicchunks:1.10-1.12", CubicChunkWriter::new, CubicChunksColumnData.class);
+        registerWriter("CubicChunks 1.10 - 1.12 - Relocating", "cubicchunks:1.10-1.12-relocating", PriorityCubicChunkWriter::new, PriorityCubicChunksColumnData.class);
         registerWriter("CubicChunks 1.17+ (ProtoBigCube)", "cubicchunks:1.17", CubicChunksProtoBigCubeWriter::new, CubicChunksProtoBigCubeData.class);
 
         registerConverter("Default", "default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
