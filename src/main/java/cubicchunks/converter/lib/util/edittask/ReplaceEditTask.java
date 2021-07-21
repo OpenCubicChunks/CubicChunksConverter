@@ -70,10 +70,19 @@ public class ReplaceEditTask extends BaseEditTask {
         byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
         byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
 
-        for (int i = 0; i < 4096; i++) {
-            if(blocks[i] == inBlockID && EditTask.nibbleGetAtIndex(meta, i) == inBlockMeta) {
-                blocks[i] = outBlockID;
-                EditTask.nibbleSetAtIndex(meta, i, outBlockMeta);
+        if(inBlockMeta == -1) { //-1 is a sentinel flag, meaning "any block metadata"
+            for (int i = 0; i < 4096; i++) {
+                if (blocks[i] == inBlockID) { //don't check metadata
+                    blocks[i] = outBlockID;
+                    EditTask.nibbleSetAtIndex(meta, i, outBlockMeta);
+                }
+            }
+        } else {
+            for (int i = 0; i < 4096; i++) {
+                if (blocks[i] == inBlockID && EditTask.nibbleGetAtIndex(meta, i) == inBlockMeta) { //check metadata
+                    blocks[i] = outBlockID;
+                    EditTask.nibbleSetAtIndex(meta, i, outBlockMeta);
+                }
             }
         }
 
