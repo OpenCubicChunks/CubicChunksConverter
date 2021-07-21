@@ -143,6 +143,9 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
     @Override public void close() throws IOException {
         ByteBuffer header = ByteBuffer.allocate(keyCount * Integer.BYTES);
         int writePos = ceilDiv(keyCount * Integer.BYTES, sectorSize);
+        if(writeEntries == null) { // this can happen if the write region was never written to before being closed due to lazy initialisation of the field
+            return;
+        }
         for (WriteEntry writeEntry : writeEntries) {
             if (writeEntry == null) {
                 header.putInt(0);
