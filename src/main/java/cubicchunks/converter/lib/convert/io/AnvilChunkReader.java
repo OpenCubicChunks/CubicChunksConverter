@@ -65,7 +65,7 @@ public class AnvilChunkReader extends BaseMinecraftReader<AnvilChunkData, Minecr
                                 .setSectorSize(4096)
                                 .setKeyProvider(keyProvider)
                                 .setRegionKey(regionKey)
-                                .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.MILLISECONDS))
+                                .addHeaderEntry(new TimestampHeaderEntryProvider<>(TimeUnit.SECONDS))
                                 .build(),
                         (file, key) -> Files.exists(file)
                 )
