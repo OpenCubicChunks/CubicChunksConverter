@@ -217,18 +217,23 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<CubicChu
                     Tag tag = is.readTag();
                     //copy done here ^
 
-                    CompoundMap sectionDetails = null;
-                    List sectionsList = (List)((CompoundMap)((CompoundTag)tag).getValue().get("Level").getValue()).get("Sections").getValue();
-                    sectionDetails = ((CompoundTag)sectionsList.get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+                    CompoundMap sectionDetails;
 
-                    sectionDetails.putIfAbsent("Add", null);
-                    sectionDetails.remove("Add");
+                    CompoundMap levelMap = (CompoundMap) ((CompoundTag) tag).getValue().get("Level").getValue();
+                    ListTag<?> sectionsTag = (ListTag<?>) levelMap.get("Sections");
 
-                    Arrays.fill((byte[])sectionDetails.get("Blocks").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("Data").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("BlockLight").getValue(), (byte) 0);
-                    Arrays.fill((byte[])sectionDetails.get("SkyLight").getValue(), (byte) 0);
+                    sectionDetails = sectionsTag == null || sectionsTag.getValue().isEmpty() ? null :
+                            ((CompoundTag)sectionsTag.getValue().get(0)).getValue();
 
+                    if (sectionDetails != null) {
+                        sectionDetails.putIfAbsent("Add", null);
+                        sectionDetails.remove("Add");
+
+                        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
+                        Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
+                    }
                     tagMap.computeIfAbsent(new Vector2i(cubeX, cubeZ), key->new HashMap<>()).put(cubeY, (CompoundTag)tag);
                     if(offset == null) continue;
                 }
