@@ -23,7 +23,6 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.util.BoundingBox;
