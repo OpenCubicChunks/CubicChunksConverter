@@ -23,7 +23,7 @@
  */
 package cubicchunks.converter.lib.conf.command;
 
-import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.edittask.EditTask;
 
 import java.util.ArrayList;
 import java.util.List;

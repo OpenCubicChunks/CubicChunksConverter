@@ -30,8 +30,8 @@ import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.conf.command.arguments.Vector3iArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.EditTask;
 import cubicchunks.converter.lib.util.Vector3i;
+import cubicchunks.converter.lib.util.edittask.CutEditTask;
 
 public class CutCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
@@ -41,10 +41,9 @@ public class CutCommand {
                     .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("dst", new Vector3iArgument())
                         .executes((info) -> {
                             BoundingBox box = info.getArgument("box", BoundingBox.class);
-                            info.getSource().addEditTask(new EditTask(
+                            info.getSource().addEditTask(new CutEditTask(
                                 box,
-                                info.getArgument("dst", Vector3i.class).sub(box.getMinPos()),
-                                EditTask.Type.CUT
+                                info.getArgument("dst", Vector3i.class).sub(box.getMinPos())
                             ));
                             return 1;
                         })
@@ -52,19 +51,17 @@ public class CutCommand {
                 ).then(LiteralArgumentBuilder.<EditTaskContext>literal("by")
                     .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("dst", new Vector3iArgument())
                         .executes((info) -> {
-                            info.getSource().addEditTask(new EditTask(
+                            info.getSource().addEditTask(new CutEditTask(
                                 info.getArgument("box", BoundingBox.class),
-                                info.getArgument("dst", Vector3i.class),
-                                EditTask.Type.CUT
+                                info.getArgument("dst", Vector3i.class)
                             ));
                             return 1;
                         })
                     )
                 ).executes((info) -> {
-                    info.getSource().addEditTask(new EditTask(
+                    info.getSource().addEditTask(new CutEditTask(
                         info.getArgument("box", BoundingBox.class),
-                        null,
-                        EditTask.Type.CUT
+                        null
                     ));
                     return 1;
                 })

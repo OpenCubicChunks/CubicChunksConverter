@@ -21,35 +21,50 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.convert.cc2ccrelocating;
+package cubicchunks.converter.lib.convert.cc2ccmerging;
 
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
-import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
+import cubicchunks.converter.lib.convert.data.DualSourceCubicChunksColumnData;
 import cubicchunks.converter.lib.util.Utils;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class CC2CCRelocatingLevelInfoConverter implements LevelInfoConverter<PriorityCubicChunksColumnData, PriorityCubicChunksColumnData> {
+public class CC2CCDualSourceMergingLevelInfoConverter implements LevelInfoConverter<DualSourceCubicChunksColumnData, CubicChunksColumnData> {
 
-    private final Path srcDir;
+    private final Path prioritySrcDir;
+    private final Path fallbackSrcDir;
     private final Path dstDir;
 
-    public CC2CCRelocatingLevelInfoConverter(Path srcDir, Path dstDir) {
-        this.srcDir = srcDir;
+    public CC2CCDualSourceMergingLevelInfoConverter(Path prioritySrcDir, Path fallbackSrcDir, Path dstDir) {
+        this.prioritySrcDir = prioritySrcDir;
+        this.fallbackSrcDir = fallbackSrcDir;
         this.dstDir = dstDir;
     }
 
     @Override public void convert() throws IOException {
         Utils.createDirectories(dstDir);
-        Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
-                        Dimensions.getDimensions().stream().anyMatch(dim ->
-                                srcDir.resolve(dim.getDirectory()).resolve("region2d").equals(file) ||
-                                        srcDir.resolve(dim.getDirectory()).resolve("region3d").equals(file)
-                        ),
+        if(Files.exists(prioritySrcDir)) {
+            Utils.copyEverythingExcept(prioritySrcDir, prioritySrcDir, dstDir, file ->
+                    Dimensions.getDimensions().stream().anyMatch(dim ->
+                        prioritySrcDir.resolve(dim.getDirectory()).resolve("region2d").equals(file) ||
+                            prioritySrcDir.resolve(dim.getDirectory()).resolve("region3d").equals(file)
+                    ),
                 f -> {
                 } // TODO: counting files
-        );
+            );
+        } else {
+            Utils.copyEverythingExcept(fallbackSrcDir, fallbackSrcDir, dstDir, file ->
+                    Dimensions.getDimensions().stream().anyMatch(dim ->
+                        fallbackSrcDir.resolve(dim.getDirectory()).resolve("region2d").equals(file) ||
+                            fallbackSrcDir.resolve(dim.getDirectory()).resolve("region3d").equals(file)
+                    ),
+                f -> {
+                } // TODO: counting files
+            );
+        }
     }
 }

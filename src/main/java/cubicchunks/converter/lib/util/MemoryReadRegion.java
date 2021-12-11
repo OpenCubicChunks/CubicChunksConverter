@@ -37,15 +37,16 @@ import cubicchunks.regionlib.lib.header.IKeyIdToSectorMap;
 import cubicchunks.regionlib.lib.header.IntPackedSectorMap;
 import cubicchunks.regionlib.util.CheckedConsumer;
 import cubicchunks.regionlib.util.CorruptedDataException;
-import cubicchunks.regionlib.util.WrappedException;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
@@ -75,9 +76,20 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
         throw new UnsupportedOperationException("Writing not supported in this implementation");
     }
 
+    @Override
+    public void writeValues(Map<K, ByteBuffer> entries) throws IOException {
+        throw new UnsupportedOperationException("Writing not supported in this implementation");
+    }
+
     @Override public void writeSpecial(K key, Object marker) throws IOException {
         throw new UnsupportedOperationException("Writing not supported in this implementation");
     }
+
+    @Override
+    public void flush() {
+        throw new UnsupportedOperationException("Writing not supported in this implementation");
+    }
+
 
     @Override public synchronized Optional<ByteBuffer> readValue(K key) throws IOException {
         if (fileBuffer == null) {
@@ -93,8 +105,8 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
             return sectorMap.trySpecialValue(key)
                     .map(reader -> Optional.of(reader.apply(key)))
                     .orElseGet(() -> doReadKey(key));
-        } catch (WrappedException e) {
-            throw (IOException) e.get();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
     }
 
@@ -116,7 +128,7 @@ public class MemoryReadRegion<K extends IKey<K>> implements IRegion<K> {
 
                 return Optional.of(ByteBuffer.allocate(dataLength).put(fileBuffer));
             } catch (IOException e) {
-                throw new WrappedException(e);
+                throw new UncheckedIOException(e);
             }
         });
     }

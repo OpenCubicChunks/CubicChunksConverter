@@ -21,27 +21,26 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.conf.command.commands;
+package cubicchunks.converter.lib.util.edittask;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import cubicchunks.converter.lib.conf.command.EditTaskContext;
-import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
+import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.edittask.KeepEditTask;
+import cubicchunks.converter.lib.util.ImmutablePair;
+import cubicchunks.converter.lib.util.Vector3i;
 
-public class KeepCommand {
-    public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("keep")
-            .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
-                .executes((info) -> {
-                    info.getSource().addEditTask(new KeepEditTask(
-                        info.getArgument("box", BoundingBox.class)
-                    ));
-                    return 1;
-                })
-            )
-        );
+import javax.annotation.Nonnull;
+import java.util.List;
+
+public class KeepEditTask extends BaseEditTask {
+    public KeepEditTask(BoundingBox srcBox) {
+        srcBoxes.add(srcBox);
+    }
+
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+        throw new IllegalStateException("KeepEditTask actOnCube should never be called as it doesn't request cube data");
+    }
+
+    @Override public boolean readsCubeData() {
+        return false;
     }
 }

@@ -1,23 +1,20 @@
-keep all
-move all by 0 16 0
-keep 2 0 0 1 1 1
+cut all #cuts EVERYTHING and replaces it with air (newly generated chunks will be normal)
+cut 0 0 0 1 1 1 #Cuts out the area from 0 0 0 to 1 1 1 and replaces it with air
+cut 2 0 0 3 1 1 to 5 0 0 #Cut out the area from 2 0 0 to 3 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), leaving AIR behind
+cut 4 0 0 5 1 1 by 5 0 0 #Cut out the area from 4 0 0 to 5 1 1 and moves it BY 5 0 0 (meaning it's at 9 0 0), leaving AIR behind
 
-cut all
-cut all to 0 1 2
-cut all by 1 2 5
-cut 0 0 0 1 1 1
-cut 1 0 0 1 1 1 to 5 0 0
-cut 2 0 0 1 1 1 by 5 0 0
+copy 0 0 0 1 1 1 to 5 0 0 #Copies the area from 0 0 0 to 1 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), leaving a COPY behind
+copy 2 0 0 3 1 1 by 5 0 0 #Copies the area from 2 0 0 to 3 1 1 and moves it BY 5 0 0 (meaning it's at 7 0 0), leaving a COPY behind
 
-copy all to 129387 1 2
-copy all by 10000 2 5
-copy 1 0 0 1 1 1 to 5 0 0
-copy 2 0 0 1 1 1 by 5 0 0
+move 0 0 0 1 1 1 to 5 0 0 #Moves the area from 0 0 0 to 1 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), The world will regenerate this area
+move 2 0 0 3 1 1 by 5 0 0 #Moves the area from 2 0 0 to 3 1 1 and moves it BY 5 0 0 (meaning it's at 7 0 0), The world will regenerate this area
 
-move all to 129387 1 2
-move all by 10000 2 5
-move 1 0 0 1 1 1 to 5 0 0
-move 2 0 0 1 1 1 by 5 0 0
+remove all #removes EVERYTHING. The world will regenerate everything
+remove 0 0 0 1 1 1 #Removes the area from 0 0 0 to 1 1 1. The world will regenerate this area
 
-remove all
-remove 1 0 0 1 1 1
+#first number is the block ID, second is the meta data value
+set all to 1 0 #Sets the entire world to stone
+set 0 0 0 1 1 1 to 1 0 #Sets the area from 0 0 0 to 1 1 1 to stone
+
+replace all like 0 1 with 1 1 #Replaces every stone with granite
+replace 0 0 0 1 1 1 like 0 1 with 1 1 #Replaces all stone with granite in the area 0 0 0 1 1 1

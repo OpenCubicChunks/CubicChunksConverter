@@ -23,19 +23,12 @@
  */
 package cubicchunks.converter.lib.convert.io;
 
-import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
-
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
-import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
-import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.MemoryReadRegion;
-import cubicchunks.converter.lib.util.RWLockingCachedRegionProvider;
-import cubicchunks.converter.lib.util.UncheckedInterruptedException;
-import cubicchunks.converter.lib.util.Utils;
-import cubicchunks.converter.lib.util.Vector3i;
+import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
+import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.api.region.IRegionProvider;
 import cubicchunks.regionlib.api.region.key.RegionKey;
@@ -53,22 +46,16 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData, SaveCubeColumns> {
+import static cubicchunks.converter.lib.util.Utils.interruptibleConsumer;
+
+public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicChunksColumnData, SaveCubeColumns> {
 
     private final CompletableFuture<ChunkList> chunkList = new CompletableFuture<>();
     private final Thread loadThread;
@@ -77,7 +64,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
     private final List<BoundingBox> regionBoundingBoxes;
 
-    public CubicChunkReader(Path srcDir, ConverterConfig config) {
+    public PriorityCubicChunkReader(Path srcDir, ConverterConfig config) {
         super(srcDir, (dim, path) -> Files.exists(getDimensionPath(dim, path)) ? createSave(getDimensionPath(dim, path)) : null);
         loadThread = Thread.currentThread();
         if(config.hasValue("relocations")) {
@@ -193,21 +180,19 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
         return dimensions;
     }
 
-    @Override public void loadChunks(Consumer<? super CubicChunksColumnData> consumer, Predicate<Throwable> errorHandler) throws IOException, InterruptedException {
+    @Override public void loadChunks(Consumer<? super PriorityCubicChunksColumnData> consumer, Predicate<Throwable> errorHandler) throws IOException, InterruptedException {
         try {
             ChunkList list = chunkList.get();
             if (list == null) {
                 return; // counting interrupted
             }
-            doLoadChunks(consumer, list, errorHandler);
-        } catch (UncheckedInterruptedException ex) {
-            // interrupted, do nothing
+            doLoadChunks(consumer, list);
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void doLoadChunks(Consumer<? super CubicChunksColumnData> consumer, ChunkList list, Predicate<Throwable> errorHandler) {
+    private void doLoadChunks(Consumer<? super PriorityCubicChunksColumnData> consumer, ChunkList list) throws IOException {
         for (Map.Entry<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
@@ -218,39 +203,25 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                 if (Thread.interrupted()) {
                     return;
                 }
-                EntryLocation2D pos2d = chunksEntry.getKey();
-                IntArrayList yCoords = chunksEntry.getValue();
-                ByteBuffer column = null;
                 try {
-                    column = save.load(pos2d, true).orElse(null);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    if (!errorHandler.test(e)) {
-                        return;
-                    }
-                }
-                Map<Integer, ByteBuffer> cubes = new HashMap<>();
-                for (IntCursor yCursor : yCoords) {
-                    if (Thread.interrupted()) {
-                        return;
-                    }
-                    int y = yCursor.value;
-                    ByteBuffer cube;
-                    try {
-                        cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        if (!errorHandler.test(e)) {
-                            throw new UncheckedInterruptedException();
+                    EntryLocation2D pos2d = chunksEntry.getKey();
+                    IntArrayList yCoords = chunksEntry.getValue();
+                    ByteBuffer column = save.load(pos2d, true).orElse(null);
+                    Map<Integer, ImmutablePair<Long, ByteBuffer>> cubes = new HashMap<>();
+                    for (IntCursor yCursor : yCoords) {
+                        if (Thread.interrupted()) {
+                            return;
                         }
-                        continue;
+                        int y = yCursor.value;
+                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
+                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                        cubes.put(y, new ImmutablePair<>(0L, cube));
                     }
-                    cubes.put(y, cube);
+                    PriorityCubicChunksColumnData data = new PriorityCubicChunksColumnData(dim, pos2d, column, cubes, true);
+                    consumer.accept(data);
+                } catch (IOException ex) {
+                    throw new UncheckedIOException(ex);
                 }
-                CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
-                consumer.accept(data);
-
             });
         }
     }

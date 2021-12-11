@@ -23,29 +23,28 @@
  */
 package cubicchunks.converter.lib.util;
 
-public final class EditTask {
-    private final BoundingBox source;
-    private final Vector3i offset;
+public class ImmutablePair<K, V> {
+    private final K key;
+    private final V value;
 
-    public enum Type {NONE, CUT, COPY, MOVE, REMOVE, KEEP}
-
-    private final Type type;
-
-    public EditTask(BoundingBox src, Vector3i offset, Type type) {
-        this.source = src;
-        this.offset = offset;
-        this.type = type;
+    public ImmutablePair(K k, V v) {
+        key = k;
+        value = v;
     }
 
-    public BoundingBox getSourceBox() {
-        return this.source;
+    public K getKey() {
+        return key;
     }
 
-    public Vector3i getOffset() {
-        return this.offset;
+    public V getValue() {
+        return value;
     }
 
-    public Type getType() {
-        return this.type;
+    public K getFirst() {
+        return key;
+    }
+
+    public V getSecond() {
+        return value;
     }
 }

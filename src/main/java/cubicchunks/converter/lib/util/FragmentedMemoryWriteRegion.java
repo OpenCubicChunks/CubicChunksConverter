@@ -91,6 +91,11 @@ public class FragmentedMemoryWriteRegion<K extends IKey<K>> implements IRegion<K
 
     }
 
+    @Override
+    public void flush() throws IOException {
+
+    }
+
     public static class Builder<K extends IKey<K>> {
 
         private Path directory;

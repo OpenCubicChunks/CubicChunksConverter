@@ -29,17 +29,15 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.EditTask;
+import cubicchunks.converter.lib.util.edittask.RemoveEditTask;
 
 public class RemoveCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("remove")
             .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
                 .executes((info) -> {
-                    info.getSource().addEditTask(new EditTask(
-                        info.getArgument("box", BoundingBox.class),
-                        null,
-                        EditTask.Type.REMOVE
+                    info.getSource().addEditTask(new RemoveEditTask(
+                        info.getArgument("box", BoundingBox.class)
                     ));
                     return 1;
                 })

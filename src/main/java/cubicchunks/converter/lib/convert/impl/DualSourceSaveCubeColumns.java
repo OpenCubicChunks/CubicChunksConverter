@@ -21,27 +21,33 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.conf.command.commands;
+package cubicchunks.converter.lib.convert.impl;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
-import cubicchunks.converter.lib.conf.command.EditTaskContext;
-import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
-import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.edittask.KeepEditTask;
+import cubicchunks.regionlib.impl.SaveCubeColumns;
 
-public class KeepCommand {
-    public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("keep")
-            .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
-                .executes((info) -> {
-                    info.getSource().addEditTask(new KeepEditTask(
-                        info.getArgument("box", BoundingBox.class)
-                    ));
-                    return 1;
-                })
-            )
-        );
+import java.io.Closeable;
+import java.io.IOException;
+
+public class DualSourceSaveCubeColumns implements Closeable {
+
+    private final SaveCubeColumns prioritySave;
+    private final SaveCubeColumns fallbackSave;
+
+    public DualSourceSaveCubeColumns(SaveCubeColumns _prioritySave, SaveCubeColumns _fallbackSave) {
+        prioritySave = _prioritySave;
+        fallbackSave = _fallbackSave;
+    }
+
+    public SaveCubeColumns getPrioritySave() {
+        return prioritySave;
+    }
+
+    public SaveCubeColumns getFallbackSave() {
+        return fallbackSave;
+    }
+
+    @Override public void close() throws IOException {
+        prioritySave.close();
+        fallbackSave.close();
     }
 }

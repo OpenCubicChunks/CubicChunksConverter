@@ -23,14 +23,12 @@
  */
 package cubicchunks.converter.lib.util;
 
-import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
-
 import java.util.Objects;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-public final class BoundingBox {
+public class BoundingBox {
     private final Vector3i minPos;
     private final Vector3i maxPos;
 

@@ -42,6 +42,7 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 
 public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
@@ -110,6 +111,11 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
         writeEntries[key.getId()] = new WriteEntry(data);
     }
 
+    @Override
+    public void writeValues(Map<K, ByteBuffer> entries) throws IOException {
+        IRegion.super.writeValues(entries);
+    }
+
     @Override public void writeSpecial(K key, Object marker) throws IOException {
         throw new UnsupportedOperationException("writeSpecial not supported");
     }
@@ -137,6 +143,9 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
     @Override public void close() throws IOException {
         ByteBuffer header = ByteBuffer.allocate(keyCount * Integer.BYTES);
         int writePos = ceilDiv(keyCount * Integer.BYTES, sectorSize);
+        if(writeEntries == null) { // this can happen if the write region was never written to before being closed due to lazy initialisation of the field
+            return;
+        }
         for (WriteEntry writeEntry : writeEntries) {
             if (writeEntry == null) {
                 header.putInt(0);
@@ -184,6 +193,11 @@ public class MemoryWriteRegion<K extends IKey<K>> implements IRegion<K> {
             throw new IllegalArgumentException("Supported entry offset range is 0 to " + MAX_OFFSET + ", but got " + location.getOffset());
         }
         return location.getSize() | (location.getOffset() << SIZE_BITS);
+    }
+
+    @Override
+    public void flush() throws IOException {
+
     }
 
     private static class WriteEntry {
