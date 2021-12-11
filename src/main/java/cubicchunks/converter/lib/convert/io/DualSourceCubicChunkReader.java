@@ -262,13 +262,13 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
             if (list == null) {
                 return; // counting interrupted
             }
-            doLoadChunks(consumer, list);
+            doLoadChunks(consumer, list, errorHandler);
         } catch (ExecutionException e) {
-            throw new RuntimeException(e);
+            errorHandler.test(e);
         }
     }
 
-    private void doLoadChunks(Consumer<? super DualSourceCubicChunksColumnData> consumer, ChunkList list) throws IOException {
+    private void doLoadChunks(Consumer<? super DualSourceCubicChunksColumnData> consumer, ChunkList list, Predicate<Throwable> errorHandler) throws IOException {
         for (Map.Entry<Dimension, List<Map.Entry<EntryLocation2D, IntArrayList>>> dimEntry : list.getChunks().entrySet()) {
             if (Thread.interrupted()) {
                 return;
@@ -305,7 +305,7 @@ public class DualSourceCubicChunkReader extends BaseMinecraftReader<DualSourceCu
                     DualSourceCubicChunksColumnData data = new DualSourceCubicChunksColumnData(dim, pos2d, column, priorityCubes, fallbackCubes);
                     consumer.accept(data);
                 } catch (IOException ex) {
-                    throw new UncheckedIOException(ex);
+                    errorHandler.test(ex); //nothing to handle here for this column
                 }
             });
         }
