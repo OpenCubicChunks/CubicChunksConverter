@@ -65,6 +65,10 @@ public class CopyEditTask extends TranslationEditTask {
                 CompoundTag tag = (CompoundTag) is.readTag();
                 //copy done here ^
 
+                CompoundMap srcLevel = ((CompoundTag)tag.getValue().get("Level")).getValue();
+                this.markCubeForLightUpdates(srcLevel);
+                this.markCubePopulated(srcLevel);
+
                 outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, tag)));
             }
 
