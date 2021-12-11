@@ -81,7 +81,7 @@ public class Registry {
         registerWriter("CubicChunks 1.10 - 1.12 - Relocating", "cubicchunks:1.10-1.12-relocating", PriorityCubicChunkWriter::new, PriorityCubicChunksColumnData.class);
         registerWriter("CubicChunks 1.17+ (ProtoBigCube)", "cubicchunks:1.17", CubicChunksProtoBigCubeWriter::new, CubicChunksProtoBigCubeData.class);
 
-        registerConverter("Default", "default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
+        registerConverter("Default", "default", Anvil2CCDataConverter::new, Anvil2CCLevelInfoConverter::new, Anvil2CCDataConverter::loadConfig, AnvilChunkData.class, CubicChunksColumnData.class, Anvil2CCDataConverter.class);
         registerConverter("Default", "default", CC2AnvilDataConverter::new, CC2AnvilLevelInfoConverter::new, CubicChunksColumnData.class, MultilayerAnvilChunkData.class, CC2AnvilDataConverter.class);
         registerConverter("Relocating", "relocating", CC2CCRelocatingDataConverter::new, CC2CCRelocatingLevelInfoConverter::new, CC2CCRelocatingDataConverter::loadConfig, PriorityCubicChunksColumnData.class, PriorityCubicChunksColumnData.class, CC2CCRelocatingDataConverter.class);
         registerConverter("Default", "default", Robinton2CCConverter::new, Robinton2CCLevelInfoConverter::new, RobintonColumnData.class, CubicChunksColumnData.class, Robinton2CCConverter.class);

@@ -23,21 +23,12 @@
  */
 package cubicchunks.converter.lib.convert.anvil2cc;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
-
-import com.flowpowered.nbt.ByteArrayTag;
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.DoubleTag;
-import com.flowpowered.nbt.IntArrayTag;
-import com.flowpowered.nbt.IntTag;
-import com.flowpowered.nbt.ListTag;
-import cubicchunks.converter.lib.util.Utils;
+import com.flowpowered.nbt.*;
+import cubicchunks.converter.lib.conf.ConverterConfig;
+import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
-import cubicchunks.converter.lib.convert.ChunkDataConverter;
+import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
@@ -46,8 +37,77 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.function.Consumer;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+
+// TODO: use kyori NBT
 public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData, CubicChunksColumnData> {
+
+    private static final Map<Integer, String> TE_REGISTRY = new HashMap<>();
+
+    static {
+        TE_REGISTRY.put(61, "furnace");
+        TE_REGISTRY.put(62, "furnace");
+        TE_REGISTRY.put(54, "chest");
+        TE_REGISTRY.put(146, "chest");
+        TE_REGISTRY.put(130, "ender_chest");
+        TE_REGISTRY.put(84, "jukebox");
+        TE_REGISTRY.put(23, "dispenser");
+        TE_REGISTRY.put(158, "dropper");
+        TE_REGISTRY.put(63, "sign");
+        TE_REGISTRY.put(68, "sign");
+        TE_REGISTRY.put(52, "mob_spawner");
+        TE_REGISTRY.put(25, "noteblock");
+        // TE_REGISTRY.put(, "piston");
+        TE_REGISTRY.put(117, "brewing_stand");
+        TE_REGISTRY.put(116, "enchanting_table");
+        TE_REGISTRY.put(119, "end_portal");
+        TE_REGISTRY.put(138, "beacon");
+        TE_REGISTRY.put(144, "skull");
+        TE_REGISTRY.put(151, "daylight_detector");
+        TE_REGISTRY.put(178, "daylight_detector");
+        TE_REGISTRY.put(154, "hopper");
+        TE_REGISTRY.put(149, "comparator");
+        TE_REGISTRY.put(150, "comparator");
+        TE_REGISTRY.put(140, "flower_pot");
+        TE_REGISTRY.put(176, "banner");
+        TE_REGISTRY.put(177, "banner");
+        TE_REGISTRY.put(255, "structure_block");
+        TE_REGISTRY.put(209, "end_gateway");
+        TE_REGISTRY.put(137, "command_block");
+        TE_REGISTRY.put(210, "command_block");
+        TE_REGISTRY.put(211, "command_block");
+        TE_REGISTRY.put(219, "shulker_box");
+        TE_REGISTRY.put(220, "shulker_box");
+        TE_REGISTRY.put(221, "shulker_box");
+        TE_REGISTRY.put(222, "shulker_box");
+        TE_REGISTRY.put(223, "shulker_box");
+        TE_REGISTRY.put(224, "shulker_box");
+        TE_REGISTRY.put(225, "shulker_box");
+        TE_REGISTRY.put(226, "shulker_box");
+        TE_REGISTRY.put(227, "shulker_box");
+        TE_REGISTRY.put(228, "shulker_box");
+        TE_REGISTRY.put(229, "shulker_box");
+        TE_REGISTRY.put(230, "shulker_box");
+        TE_REGISTRY.put(231, "shulker_box");
+        TE_REGISTRY.put(232, "shulker_box");
+        TE_REGISTRY.put(233, "shulker_box");
+        TE_REGISTRY.put(234, "shulker_box");
+        TE_REGISTRY.put(26, "bed");
+    }
+    private final boolean fixMissingTileEntities;
+
+    public Anvil2CCDataConverter(ConverterConfig config) {
+        fixMissingTileEntities = config.getBool("fixMissingTileEntities");
+    }
+
+    public static ConverterConfig loadConfig(Consumer<Throwable> errorHandler) {
+        ConverterConfig conf = new ConverterConfig(new HashMap<>());
+        conf.set("fixMissingTileEntities", true);
+        return conf;
+    }
 
     public Set<CubicChunksColumnData> convert(AnvilChunkData input) {
         try {
@@ -251,7 +311,11 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
                     level.put(new ListTag<>("Sections", CompoundTag.class, singletonList(fixSection(srcSection))));
 
                     level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
-                    level.put(filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y));
+                    ListTag<?> tileEntities = filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y);
+                    if (fixMissingTileEntities) {
+                        tileEntities = addMissingTileEntities(x, y, z, (ListTag<CompoundTag>) tileEntities, srcSection);
+                    }
+                    level.put(tileEntities);
                     if (srcLevel.containsKey("TileTicks")) {
                         level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
                     }
@@ -268,6 +332,54 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
             }
         }
         return tags;
+    }
+
+    private ListTag<CompoundTag> addMissingTileEntities(int cubeX, int cubeY, int cubeZ, ListTag<CompoundTag> tileEntities, CompoundTag srcSection) {
+        CompoundMap section = srcSection.getValue();
+        if (!section.containsKey("Blocks")) {
+            return tileEntities;
+        }
+        final IntTag zeroTag = new IntTag("", 0);
+
+        byte[] blocks = ((ByteArrayTag) section.get("Blocks")).getValue();
+        byte[] add = section.containsKey("Add") ? ((ByteArrayTag) section.get("Add")).getValue() : null;
+        byte[] add2neid = section.containsKey("Add2") ? ((ByteArrayTag) section.get("Add2")).getValue() : null;
+
+        Map<Integer, CompoundTag> teMap = new HashMap<>();
+        for (CompoundTag tag : tileEntities.getValue()) {
+            CompoundMap te = tag.getValue();
+            int x = ((Number) te.getOrDefault("x", zeroTag).getValue()).intValue();
+            int y = ((Number) te.getOrDefault("y", zeroTag).getValue()).intValue();
+            int z = ((Number) te.getOrDefault("z", zeroTag).getValue()).intValue();
+            int idx = y & 0xF << 8 | z & 0xF << 4 | x & 0xF;
+            teMap.put(idx, tag);
+        }
+        for (int i = 0; i < 4096; i++) {
+            int x = i & 15;
+            int y = i >> 8 & 15;
+            int z = i >> 4 & 15;
+
+            int toAdd = add == null ? 0 : getNibble(add, i);
+            toAdd = (toAdd & 0xF) | (add2neid == null ? 0 : getNibble(add2neid, i) << 4);
+            int id = (toAdd << 8) | (blocks[i] & 0xFF);
+            String teId = TE_REGISTRY.get(id);
+            if (teId != null && !teMap.containsKey(i)) {
+                CompoundMap map = new CompoundMap();
+                map.put(new StringTag("id", teId));
+                map.put(new IntTag("x", cubeX * 16 + x));
+                map.put(new IntTag("y", cubeY * 16 + y));
+                map.put(new IntTag("z", cubeZ * 16 + z));
+                CompoundTag tag = new CompoundTag("", map);
+                teMap.put(i, tag);
+            }
+        }
+        return new ListTag<>(tileEntities.getName(), CompoundTag.class, new ArrayList<>(teMap.values()));
+    }
+
+    private static int getNibble(byte[] array, int i) {
+        byte v = array[i >> 1];
+        int shiftedValue = (i & 1) == 0 ? v : (v >> 4);
+        return shiftedValue & 0xF;
     }
 
     private CompoundTag emptyCube(int x, int y, int z) {
