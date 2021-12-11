@@ -51,10 +51,10 @@ public abstract class BaseEditTask implements EditTask {
 
     protected void markCubeForLightUpdates(CompoundMap cubeLevelMap) {
         cubeLevelMap.put(new ByteTag("isSurfaceTracked", (byte) 0));
-        cubeLevelMap.put(new ByteTag("initLightDone", (byte) 0));
+        cubeLevelMap.put(new ByteTag("initLightDone", (byte) 1));
 
         CompoundMap lightingInfo = (CompoundMap) cubeLevelMap.get("LightingInfo").getValue();
-        Arrays.fill(((IntArrayTag) lightingInfo.get("LastHeightMap")).getValue(), (byte) 0);
+        Arrays.fill(((IntArrayTag) lightingInfo.get("LastHeightMap")).getValue(), Integer.MAX_VALUE);
         lightingInfo.put(new ByteTag("EdgeNeedSkyLightUpdate", (byte) 1));
     }
 
