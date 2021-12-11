@@ -34,10 +34,11 @@ import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CopyEditTask extends BaseEditTask {
+public class CopyEditTask extends TranslationEditTask {
     private final Vector3i offset;
 
     public CopyEditTask(BoundingBox srcBox, Vector3i dstOffset) {
@@ -76,14 +77,16 @@ public class CopyEditTask extends BaseEditTask {
             level.put(new IntTag("y", dstY));
             level.put(new IntTag("z", dstZ));
 
-            level.put(new ByteTag("isSurfaceTracked", (byte) 0));
-            level.put(new ByteTag("initLightDone", (byte) 0));
-            level.put(new ByteTag("populated", (byte) 1));
-            level.put(new ByteTag("fullyPopulated", (byte) 1));
+            this.markCubeForLightUpdates(level);
+            this.markCubePopulated(level);
+
+            this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
+            this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, true);
 
             outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
-        } catch (IOException ignored) {
-
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new UncheckedIOException(e);
         }
         return outCubes;
     }

@@ -23,11 +23,15 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
+import com.flowpowered.nbt.ByteTag;
+import com.flowpowered.nbt.CompoundMap;
+import com.flowpowered.nbt.IntArrayTag;
 import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
 import cubicchunks.converter.lib.util.BoundingBox;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -43,5 +47,19 @@ public abstract class BaseEditTask implements EditTask {
 
     @Nonnull @Override public List<BoundingBox> getDstBoxes() {
         return dstBoxes;
+    }
+
+    protected void markCubeForLightUpdates(CompoundMap cubeLevelMap) {
+        cubeLevelMap.put(new ByteTag("isSurfaceTracked", (byte) 0));
+        cubeLevelMap.put(new ByteTag("initLightDone", (byte) 0));
+
+        CompoundMap lightingInfo = (CompoundMap) cubeLevelMap.get("LightingInfo").getValue();
+        Arrays.fill(((IntArrayTag) lightingInfo.get("LastHeightMap")).getValue(), (byte) 0);
+        lightingInfo.put(new ByteTag("EdgeNeedSkyLightUpdate", (byte) 1));
+    }
+
+    public void markCubePopulated(CompoundMap cubeLevelMap) {
+        cubeLevelMap.put(new ByteTag("populated", (byte) 1));
+        cubeLevelMap.put(new ByteTag("fullyPopulated", (byte) 1));
     }
 }

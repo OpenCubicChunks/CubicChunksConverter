@@ -50,10 +50,8 @@ public class SetEditTask extends BaseEditTask {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
-        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
-        entryLevel.put(new ByteTag("populated", (byte) 1));
-        entryLevel.put(new ByteTag("fullyPopulated", (byte) 1));
+        this.markCubeForLightUpdates(entryLevel);
+        this.markCubePopulated(entryLevel);
 
         CompoundMap sectionDetails;
         try {

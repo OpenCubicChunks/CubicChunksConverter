@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MoveEditTask extends BaseEditTask {
+public class MoveEditTask extends TranslationEditTask {
     private final Vector3i offset;
 
     public MoveEditTask(BoundingBox srcBox, Vector3i dstOffset) {
@@ -57,6 +57,12 @@ public class MoveEditTask extends BaseEditTask {
         level.put(new IntTag("x", dstPos.getX()));
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
+
+        this.markCubeForLightUpdates(level);
+        this.markCubePopulated(level);
+
+        this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
+        this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
 
         outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
         outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));

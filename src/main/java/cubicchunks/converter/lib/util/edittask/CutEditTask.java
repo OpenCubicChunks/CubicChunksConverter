@@ -23,10 +23,7 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.IntTag;
+import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.util.BoundingBox;
@@ -37,11 +34,12 @@ import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CutEditTask extends BaseEditTask {
+public class CutEditTask extends TranslationEditTask {
     private final Vector3i offset;
 
     private final BoundingBox exclusiveDstBox;
@@ -66,6 +64,7 @@ public class CutEditTask extends BaseEditTask {
         int cubeZ = cubePos.getZ();
 
         try {
+            //clearing data from old cube
             if(offset == null || !exclusiveDstBox.intersects(cubeX, cubeY, cubeZ)) {
                 //this is just doing a deep copy of the tag by writing to byte array then back again
                 ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
@@ -80,27 +79,31 @@ public class CutEditTask extends BaseEditTask {
                 try {
                     sectionDetails = ((CompoundTag) ((List<?>) srcLevel.get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
                 } catch (NullPointerException e) {
-                    LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
-                    return outCubes;
+                    CutEditTask.LOGGER.warning("Null Sections array for cube at position (" + cubeX + ", " + cubeY + ", " + cubeZ + "), skipping!");
+                    return outCubes; //will be empty at this point
                 }
-                sectionDetails.putIfAbsent("Add", null);
+
+                //remove optional "Additional" block data array
                 sectionDetails.remove("Add");
 
-                Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), (byte) 0);
-                Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) 0);
-                Arrays.fill((byte[]) sectionDetails.get("BlockLight").getValue(), (byte) 0);
-                Arrays.fill((byte[]) sectionDetails.get("SkyLight").getValue(), (byte) 0);
+                ByteArrayTag emptyArray = new ByteArrayTag("", new byte[0]);
+                Arrays.fill((byte[]) sectionDetails.getOrDefault("Blocks", emptyArray).getValue(), (byte) 0);
+                Arrays.fill((byte[]) sectionDetails.getOrDefault("Data", emptyArray).getValue(), (byte) 0);
+                Arrays.fill((byte[]) sectionDetails.getOrDefault("BlockLight", emptyArray).getValue(), (byte) 0);
+                Arrays.fill((byte[]) sectionDetails.getOrDefault("SkyLight", emptyArray).getValue(), (byte) 0);
 
-                srcLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                srcLevel.put(new ByteTag("initLightDone", (byte) 0));
-                srcLevel.put(new ByteTag("populated", (byte) 1));
-                srcLevel.put(new ByteTag("fullyPopulated", (byte) 1));
+                this.markCubeForLightUpdates(srcLevel);
+                this.markCubePopulated(srcLevel);
+
+                srcLevel.put(new ListTag<>("TileTicks", CompoundTag.class, new ArrayList<>()));
+                srcLevel.put(new ListTag<>("Entities", CompoundTag.class, new ArrayList<>()));
+                srcLevel.put(new ListTag<>("TileEntities", CompoundTag.class, new ArrayList<>()));
 
                 outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, tag)));
             }
 
+            // adjusting new cube data to be valid
             CompoundMap level = (CompoundMap)cubeTag.getValue().get("Level").getValue();
-
             if (offset != null && !offset.equals(new Vector3i(0, 0, 0))) {
                 int dstX = cubeX + offset.getX();
                 int dstY = cubeY + offset.getY();
@@ -109,15 +112,17 @@ public class CutEditTask extends BaseEditTask {
                 level.put(new IntTag("y", dstY));
                 level.put(new IntTag("z", dstZ));
 
-                level.put(new ByteTag("isSurfaceTracked", (byte) 0));
-                level.put(new ByteTag("initLightDone", (byte) 0));
-                level.put(new ByteTag("populated", (byte) 1));
-                level.put(new ByteTag("fullyPopulated", (byte) 1));
+                this.markCubeForLightUpdates(level);
+                this.markCubePopulated(level);
+
+                this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
+                this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
 
                 outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
             }
-        } catch(IOException ignored) {
-
+        } catch(IOException e) {
+            e.printStackTrace();
+            throw new UncheckedIOException(e);
         }
         return outCubes;
     }

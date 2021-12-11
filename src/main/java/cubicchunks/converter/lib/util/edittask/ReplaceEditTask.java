@@ -53,15 +53,13 @@ public class ReplaceEditTask extends BaseEditTask {
     @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
-        entryLevel.put(new ByteTag("isSurfaceTracked", (byte) 0));
-        entryLevel.put(new ByteTag("initLightDone", (byte) 0));
-        entryLevel.put(new ByteTag("populated", (byte) 1));
-        entryLevel.put(new ByteTag("fullyPopulated", (byte) 1));
+        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        this.markCubeForLightUpdates(level);
+        this.markCubePopulated(level);
 
         CompoundMap sectionDetails;
         try {
-            sectionDetails = ((CompoundTag)((List<?>) (entryLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
         } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
             LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
             return outCubes;
