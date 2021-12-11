@@ -12,14 +12,20 @@ buildscript {
             setUrl("https://plugins.gradle.org/m2/")
         }
         maven {
+            setUrl("https://ajoberstar.org/bintray-backup/")
+        }
+        maven {
             setUrl("https://libraries.minecraft.net")
         }
     }
     dependencies {
-        classpath("org.ajoberstar:grgit:1.4.+")
         classpath("gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1")
         classpath("com.github.jengelman.gradle.plugins:shadow:1.2.3")
     }
+}
+
+plugins {
+    id("org.ajoberstar.grgit") version "4.1.1"
 }
 
 group = "io.github.opencubicchunks"
@@ -205,7 +211,9 @@ artifacts {
 fun getProjectVersion(): String {
     try {
         val git = Grgit.open()
-        val describe = DescribeOp(git.repository).call()
+        val describeOp = DescribeOp(git.repository)
+        describeOp.tags = false
+        val describe = describeOp.call()
         val branch = getGitBranch(git)
         val snapshotSuffix = if (project.hasProperty("doRelease")) "" else "-SNAPSHOT"
         return getVersion_do(describe, branch) + snapshotSuffix
