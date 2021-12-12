@@ -33,14 +33,14 @@ public class ConfigCommand {
         dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("config")
             .then(LiteralArgumentBuilder.<EditTaskContext>literal("relight")
                 .then(LiteralArgumentBuilder.<EditTaskContext>literal("src")
-                    .then(LiteralArgumentBuilder.<EditTaskContext>literal("off")
+                    .then(LiteralArgumentBuilder.<EditTaskContext>literal("off") //src off
                         .executes((info) -> {
                             info.getSource().addEditTask(new ConfigEditTask((config) -> {
                                 config.relightSrc(false);
                             }));
                             return 1;
                         })
-                    ).then(LiteralArgumentBuilder.<EditTaskContext>literal("on")
+                    ).then(LiteralArgumentBuilder.<EditTaskContext>literal("on") //src on
                         .executes((info) -> {
                             info.getSource().addEditTask(new ConfigEditTask((config) -> {
                                 config.relightSrc(true);
@@ -49,14 +49,14 @@ public class ConfigCommand {
                         })
                     )
                 ).then(LiteralArgumentBuilder.<EditTaskContext>literal("dst")
-                    .then(LiteralArgumentBuilder.<EditTaskContext>literal("off")
+                    .then(LiteralArgumentBuilder.<EditTaskContext>literal("off") //dst off
                         .executes((info) -> {
                             info.getSource().addEditTask(new ConfigEditTask((config) -> {
                                 config.relightDst(false);
                             }));
                             return 1;
                         })
-                    ).then(LiteralArgumentBuilder.<EditTaskContext>literal("on")
+                    ).then(LiteralArgumentBuilder.<EditTaskContext>literal("on") //dst on
                         .executes((info) -> {
                             info.getSource().addEditTask(new ConfigEditTask((config) -> {
                                 config.relightDst(true);
@@ -64,6 +64,22 @@ public class ConfigCommand {
                             return 1;
                         })
                     )
+                ).then(LiteralArgumentBuilder.<EditTaskContext>literal("off") //both off
+                    .executes((info) -> {
+                        info.getSource().addEditTask(new ConfigEditTask((config) -> {
+                            config.relightSrc(false);
+                            config.relightDst(false);
+                        }));
+                        return 1;
+                    })
+                ).then(LiteralArgumentBuilder.<EditTaskContext>literal("on") //both on
+                    .executes((info) -> {
+                        info.getSource().addEditTask(new ConfigEditTask((config) -> {
+                            config.relightSrc(true);
+                            config.relightDst(true);
+                        }));
+                        return 1;
+                    })
                 )
             )
         );
