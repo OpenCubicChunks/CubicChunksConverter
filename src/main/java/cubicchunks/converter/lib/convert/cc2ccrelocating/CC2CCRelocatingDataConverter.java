@@ -48,12 +48,14 @@ import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 public class CC2CCRelocatingDataConverter implements ChunkDataConverter<PriorityCubicChunksColumnData, PriorityCubicChunksColumnData> {
 
     private final List<EditTask> relocateTasks;
+    private final EditTaskContext.EditTaskConfig config;
 
     private static final Logger LOGGER = Logger.getLogger(CC2CCRelocatingDataConverter.class.getSimpleName());
 
     @SuppressWarnings("unchecked")
     public CC2CCRelocatingDataConverter(ConverterConfig config) {
-        relocateTasks = (List<EditTask>) config.getValue("relocations");
+        this.relocateTasks = (List<EditTask>) config.getValue("relocations");
+        this.config = new EditTaskContext.EditTaskConfig();
     }
 
     public static ConverterConfig loadConfig(Consumer<Throwable> throwableConsumer) {
@@ -123,7 +125,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         });
 
         try {
-            Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(inCubeData);
+            Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(inCubeData, this.config);
 
             Set<PriorityCubicChunksColumnData> columnData = new HashSet<>();
             for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
@@ -155,7 +157,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         return compressedData;
     }
 
-    Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> relocateCubeData(Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld) throws IOException {
+    Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> relocateCubeData(Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld, EditTaskContext.EditTaskConfig config) throws IOException {
         Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> tagMap = new HashMap<>();
 
         for(Map.Entry<Integer, ImmutablePair<Long, CompoundTag>> entry : cubeDataOld.entrySet()) {
@@ -166,6 +168,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
             int cubeZ = (Integer) level.get("z").getValue();
 
             for (EditTask task : this.relocateTasks) {
+                task.initialise(config);
                 if(!task.readsCubeData()) {
                     continue;
                 }
@@ -180,7 +183,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
                 if(!cubeIsSrc)
                     continue;
 
-                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), entry.getValue().getValue(), entry.getKey());
+                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), config, entry.getValue().getValue(), entry.getKey());
 
                 outputCubes.forEach(positionTagPriority -> {
                     Vector3i cubePos = positionTagPriority.getKey();

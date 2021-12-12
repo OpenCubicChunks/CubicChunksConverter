@@ -23,9 +23,9 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.ByteTag;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -46,16 +46,18 @@ public class SetEditTask extends BaseEditTask {
         this.blockMeta = blockMeta;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        CompoundMap entryLevel = (CompoundMap) cubeTag.getValue().get("Level").getValue();
-        this.markCubeForLightUpdates(entryLevel);
-        this.markCubePopulated(entryLevel);
+        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        if(config.shouldRelightDst()) {
+            this.markCubeForLightUpdates(level);
+        }
+        this.markCubePopulated(level);
 
         CompoundMap sectionDetails;
         try {
-            sectionDetails = ((CompoundTag)((List<?>) (entryLevel).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
         } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
             LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
             return outCubes;

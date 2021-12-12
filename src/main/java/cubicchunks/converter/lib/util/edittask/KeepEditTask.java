@@ -24,6 +24,7 @@
 package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.CompoundTag;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -36,7 +37,7 @@ public class KeepEditTask extends BaseEditTask {
         srcBoxes.add(srcBox);
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         throw new IllegalStateException("KeepEditTask actOnCube should never be called as it doesn't request cube data");
     }
 

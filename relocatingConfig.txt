@@ -3,8 +3,12 @@ cut 0 0 0 1 1 1 #Cuts out the area from 0 0 0 to 1 1 1 and replaces it with air
 cut 2 0 0 3 1 1 to 5 0 0 #Cut out the area from 2 0 0 to 3 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), leaving AIR behind
 cut 4 0 0 5 1 1 by 5 0 0 #Cut out the area from 4 0 0 to 5 1 1 and moves it BY 5 0 0 (meaning it's at 9 0 0), leaving AIR behind
 
+config relight dst off #disables relighting destination cubes from this point
+
 copy 0 0 0 1 1 1 to 5 0 0 #Copies the area from 0 0 0 to 1 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), leaving a COPY behind
 copy 2 0 0 3 1 1 by 5 0 0 #Copies the area from 2 0 0 to 3 1 1 and moves it BY 5 0 0 (meaning it's at 7 0 0), leaving a COPY behind
+
+config relight src off #disables relighting source cubes from this point
 
 move 0 0 0 1 1 1 to 5 0 0 #Moves the area from 0 0 0 to 1 1 1 and moves it TO 5 0 0 (meaning it's at 5 0 0), The world will regenerate this area
 move 2 0 0 3 1 1 by 5 0 0 #Moves the area from 2 0 0 to 3 1 1 and moves it BY 5 0 0 (meaning it's at 7 0 0), The world will regenerate this area
@@ -15,6 +19,9 @@ remove 0 0 0 1 1 1 #Removes the area from 0 0 0 to 1 1 1. The world will regener
 #first number is the block ID, second is the meta data value
 set all to 1 0 #Sets the entire world to stone
 set 0 0 0 1 1 1 to 1 0 #Sets the area from 0 0 0 to 1 1 1 to stone
+
+config relight dst on #re-enable relighting all cubes
+config relight src on
 
 replace all like 0 1 with 1 1 #Replaces every stone with granite
 replace 0 0 0 1 1 1 like 0 1 with 1 1 #Replaces all stone with granite in the area 0 0 0 1 1 1

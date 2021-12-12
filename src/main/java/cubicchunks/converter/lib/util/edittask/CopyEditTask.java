@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.util.edittask;
 import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -47,7 +48,7 @@ public class CopyEditTask extends TranslationEditTask {
         offset = dstOffset;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         int cubeX = cubePos.getX();
@@ -66,7 +67,9 @@ public class CopyEditTask extends TranslationEditTask {
                 //copy done here ^
 
                 CompoundMap srcLevel = ((CompoundTag)tag.getValue().get("Level")).getValue();
-                this.markCubeForLightUpdates(srcLevel);
+                if(config.shouldRelightSrc()) {
+                    this.markCubeForLightUpdates(srcLevel);
+                }
                 this.markCubePopulated(srcLevel);
 
                 outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, tag)));
@@ -81,7 +84,9 @@ public class CopyEditTask extends TranslationEditTask {
             level.put(new IntTag("y", dstY));
             level.put(new IntTag("z", dstZ));
 
-            this.markCubeForLightUpdates(level);
+            if(config.shouldRelightDst()) {
+                this.markCubeForLightUpdates(level);
+            }
             this.markCubePopulated(level);
 
             this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);

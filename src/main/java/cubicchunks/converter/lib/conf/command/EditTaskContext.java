@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EditTaskContext {
-
+    private final EditTaskConfig config = new EditTaskConfig();
     private final List<EditTask> tasks = new ArrayList<>();
 
     public void addEditTask(EditTask task) {
@@ -38,5 +38,32 @@ public class EditTaskContext {
 
     public List<EditTask> getTasks() {
         return tasks;
+    }
+
+    public EditTaskConfig config() {
+        return config;
+    }
+
+    public static class EditTaskConfig {
+        private boolean shouldRelightSrc = true;
+        private boolean shouldRelightDst = true;
+
+        public EditTaskConfig() {}
+
+        public void relightSrc(boolean val) {
+            shouldRelightSrc = val;
+        }
+
+        public boolean shouldRelightSrc() {
+            return shouldRelightSrc;
+        }
+
+        public void relightDst(boolean val) {
+            shouldRelightDst = val;
+        }
+
+        public boolean shouldRelightDst() {
+            return shouldRelightDst;
+        }
     }
 }

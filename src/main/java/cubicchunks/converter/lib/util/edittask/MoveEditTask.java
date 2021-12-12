@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.util.edittask;
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
 import com.flowpowered.nbt.IntTag;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -44,7 +45,7 @@ public class MoveEditTask extends TranslationEditTask {
         offset = dstOffset;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         if(dstBoxes.get(0).intersects(cubePos.getX(), cubePos.getY(), cubePos.getZ())) {
@@ -58,7 +59,9 @@ public class MoveEditTask extends TranslationEditTask {
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
 
-        this.markCubeForLightUpdates(level);
+        if(config.shouldRelightDst()) {
+            this.markCubeForLightUpdates(level);
+        }
         this.markCubePopulated(level);
 
         this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);

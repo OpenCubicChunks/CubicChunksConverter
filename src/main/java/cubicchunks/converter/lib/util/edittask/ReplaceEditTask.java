@@ -25,6 +25,7 @@ package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -49,11 +50,13 @@ public class ReplaceEditTask extends BaseEditTask {
         this.outBlockMeta = outBlockMeta;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority) {
+    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
         CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
-        this.markCubeForLightUpdates(level);
+        if(config.shouldRelightDst()) {
+            this.markCubeForLightUpdates(level);
+        }
         this.markCubePopulated(level);
 
         CompoundMap sectionDetails;

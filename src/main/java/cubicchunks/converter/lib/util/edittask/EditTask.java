@@ -25,6 +25,7 @@ package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -38,15 +39,20 @@ public interface EditTask {
      * @param cubeTag The cube to be modified. The {@link Vector3i} is in cube coordinates, not block
      * @return The modified cube/s. The {@link CompoundMap} can be null, if so the cube will be regenerated the next time it's loaded by the game
      */
-    @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, CompoundTag cubeTag, long inCubePriority);
+    @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority);
+
+    /** 
+     * Called ONCE per task, before any cubes are sent
+     */
+    default void initialise(EditTaskContext.EditTaskConfig config) {}
 
     /**
-     * @return A list of bounding boxes describing which cubes this task wants to recieve in {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
+     * @return A list of bounding boxes describing which cubes this task wants to recieve in {@link EditTask#actOnCube(Vector3i, EditTaskContext.EditTaskConfig, CompoundTag, long)}
      */
     @Nonnull List<BoundingBox> getSrcBoxes();
 
     /**
-     * @return A list of bounding boxes describing which cubes this task will modify from {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
+     * @return A list of bounding boxes describing which cubes this task will modify from {@link EditTask#actOnCube(Vector3i, EditTaskContext.EditTaskConfig, CompoundTag, long)}
      */
     @Nonnull List<BoundingBox> getDstBoxes();
 
@@ -60,7 +66,7 @@ public interface EditTask {
     }
 
     /**
-     * @return Whether this task requires the cube data at all. If this returns false {@link EditTask#actOnCube(Vector3i, CompoundTag, long)}
+     * @return Whether this task requires the cube data at all. If this returns false {@link EditTask#actOnCube(Vector3i, EditTaskContext.EditTaskConfig, CompoundTag, long)}
      * will never be called. Only {@link EditTask#getSrcBoxes()}
      * This is used in tasks such as {@link KeepEditTask}, as no cube data is required.
      */
