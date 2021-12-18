@@ -23,11 +23,11 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;

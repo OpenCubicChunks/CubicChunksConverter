@@ -23,13 +23,13 @@
  */
 package cubicchunks.converter.lib.convert.anvil2cc;
 
-import com.flowpowered.nbt.*;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.regionlib.impl.EntryLocation2D;
+import net.kyori.nbt.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -169,25 +169,31 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
          *  |- Biomes
          *  |- OpacityIndex
          */
-        CompoundMap levelMap = new CompoundMap();
-        CompoundMap srcLevel = (CompoundMap) tag.getValue().get("Level").getValue();
+        CompoundTag level = new CompoundTag();
+        CompoundTag srcLevel = tag.getCompound("Level");
 
-        int[] srcHeightMap = fixHeightmap((int[]) srcLevel.get("HeightMap").getValue());
+        int[] srcHeightMap = fixHeightmap(srcLevel.getIntArray("HeightMap"));
 
-        levelMap.put(new IntTag("v", 1));
-        levelMap.put(new IntTag("x", (Integer) srcLevel.get("xPos").getValue()));
-        levelMap.put(new IntTag("z", (Integer) srcLevel.get("zPos").getValue()));
-        levelMap.put(srcLevel.getOrDefault("InhabitedTime", new IntTag("InhabitedTime", 0)));
-        levelMap.put(srcLevel.get("Biomes"));
-        levelMap.put(new ByteArrayTag("OpacityIndex", makeDummyOpacityIndex(srcHeightMap)));
+        level.put("v", new IntTag(1));
 
-        CompoundMap rootMap = new CompoundMap();
-        rootMap.put(new CompoundTag("Level", levelMap));
-        if (tag.getValue().containsKey("DataVersion")) {
-            rootMap.put(tag.getValue().get("DataVersion"));
+        if(!srcLevel.containsAll(TagType.INT, "xPos", "zPos"))
+            throw new RuntimeException("Anvil chunk does not contain xPos or zPos!");
+
+        level.put("x", new IntTag(srcLevel.getInt("xPos")));
+        level.put("z", new IntTag(srcLevel.getInt("zPos")));
+        level.put("InhabitedTime", new IntTag(srcLevel.getInt("InhabitedTime", 0)));
+        if(srcLevel.contains("Biomes")) {
+            level.put("Biomes", srcLevel.get("Biomes"));
+        }
+        level.put("OpacityIndex", new ByteArrayTag(makeDummyOpacityIndex(srcHeightMap)));
+
+        CompoundTag root = new CompoundTag();
+        root.put("Level", level);
+        if (tag.contains("DataVersion")) {
+            root.put("DataVersion", tag.get("DataVersion"));
         }
 
-        return new CompoundTag("", rootMap);
+        return root;
     }
 
     private int[] fixHeightmap(int[] heights) {
@@ -222,7 +228,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Integer, CompoundTag> extractCubeData(CompoundTag srcRootTag) {
+    private Map<Integer, CompoundTag> extractCubeData(CompoundTag srcRoot) {
         /*
          *
          * Vanilla Chunk NBT structure:
@@ -277,53 +283,61 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
          *  |- LightingInfo
          *   |- LastHeightMap
          */
-        CompoundMap srcRoot = srcRootTag.getValue();
         Map<Integer, CompoundTag> tags = new HashMap<>();
-        CompoundMap srcLevel = ((CompoundTag) srcRoot.get("Level")).getValue();
-        int x = (Integer) srcLevel.get("xPos").getValue();
-        int z = (Integer) srcLevel.get("zPos").getValue();
-        //noinspection unchecked
-        for (CompoundTag srcSection : ((ListTag<CompoundTag>) srcLevel.get("Sections")).getValue()) {
-            int y = ((ByteTag) srcSection.getValue().get("Y")).getValue();
+        CompoundTag srcLevel = srcRoot.getCompound("Level");
 
-            CompoundMap root = new CompoundMap();
+        if(!srcLevel.containsAll(TagType.INT, "xPos", "zPos"))
+            throw new RuntimeException("Anvil chunk does not contain xPos or zPos!");
+
+        int x = srcLevel.getInt("xPos");
+        int z = srcLevel.getInt("zPos");
+        for (Tag srcSectionTag : srcLevel.getList("Sections")) {
+            if(srcSectionTag.type() != TagType.COMPOUND)
+                continue;
+
+            CompoundTag srcSection = ((CompoundTag) srcSectionTag);
+            int y = srcSection.getByte("Y");
+
+            CompoundTag root = new CompoundTag();
             {
-                if (srcRoot.containsKey("DataVersion")) {
-                    root.put(srcRoot.get("DataVersion"));
+                if (srcRoot.contains("DataVersion")) {
+                    root.put("DataVersion", srcRoot.get("DataVersion"));
                 }
-                CompoundMap level = new CompoundMap();
+                CompoundTag level = new CompoundTag();
 
                 {
-                    level.put(new ByteTag("v", (byte) 1));
-                    level.put(new IntTag("x", x));
-                    level.put(new IntTag("y", y));
-                    level.put(new IntTag("z", z));
+                    level.put("v", new ByteTag((byte) 1));
+                    level.put("x", new IntTag(x));
+                    level.put("y", new IntTag(y));
+                    level.put("z", new IntTag(z));
 
-                    ByteTag populated = (ByteTag) srcLevel.get("TerrainPopulated");
-                    level.put(new ByteTag("populated", populated == null ? 0 : populated.getValue()));
-                    level.put(new ByteTag("fullyPopulated", populated == null ? 0 : populated.getValue())); // TODO: handle this properly
-                    level.put(new ByteTag("isSurfaceTracked", (byte) 0)); // so that cubic chunks can re-make surface tracking data on it's own
+                    byte populated = srcLevel.getByte("TerrainPopulated", (byte) 0);
+                    level.put("populated", new ByteTag(populated));
+                    level.put("fullyPopulated", new ByteTag(populated)); // TODO: handle this properly
+                    level.put("isSurfaceTracked", new ByteTag((byte) 0)); // so that cubic chunks can re-make surface tracking data on it's own
 
-                    ByteTag lightPopulated = (ByteTag) srcLevel.get("LightPopulated");
-                    level.put(new ByteTag("initLightDone", lightPopulated == null ? 0 : lightPopulated.getValue()));
+                    byte lightPopulated = srcLevel.getByte("LightPopulated", (byte) 0);
+                    level.put("initLightDone", new ByteTag(lightPopulated));
 
                     // the vanilla section has additional Y tag, it will be ignored by cubic chunks
-                    level.put(new ListTag<>("Sections", CompoundTag.class, singletonList(fixSection(srcSection))));
+                    ListTag sectionsTag = new ListTag(TagType.COMPOUND);
+                    sectionsTag.add(fixSection(srcSection));
+                    level.put("Sections", sectionsTag);
 
-                    level.put(filterEntities((ListTag<CompoundTag>) srcLevel.get("Entities"), y));
-                    ListTag<?> tileEntities = filterTileEntities((ListTag<?>) srcLevel.get("TileEntities"), y);
+                    level.put("Entities", filterEntities(srcLevel.getList("Entities"), y));
+                    ListTag tileEntities = filterTileEntities(srcLevel.getList("TileEntities"), y);
                     if (fixMissingTileEntities) {
-                        tileEntities = addMissingTileEntities(x, y, z, (ListTag<CompoundTag>) tileEntities, srcSection);
+                        tileEntities = addMissingTileEntities(x, y, z, tileEntities, srcSection);
                     }
-                    level.put(tileEntities);
-                    if (srcLevel.containsKey("TileTicks")) {
-                        level.put(filterTileTicks((ListTag<CompoundTag>) srcLevel.get("TileTicks"), y));
+                    level.put("TileEntities", tileEntities);
+                    if (srcLevel.contains("TileTicks")) {
+                        level.put("TileTicks", filterTileTicks(srcLevel.getList("TileTicks"), y));
                     }
-                    level.put(makeLightingInfo(srcLevel));
+                    level.put("LightingInfo", makeLightingInfo(srcLevel));
                 }
-                root.put(new CompoundTag("Level", level));
+                root.put("Level", level);
             }
-            tags.put(y, new CompoundTag("", root));
+            tags.put(y, root);
         }
         // make sure the 0-15 range is there because it's using vanilla generator which expects it to be the case
         for (int y = 0; y < 16; y++) {
@@ -334,25 +348,23 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         return tags;
     }
 
-    private ListTag<CompoundTag> addMissingTileEntities(int cubeX, int cubeY, int cubeZ, ListTag<CompoundTag> tileEntities, CompoundTag srcSection) {
-        CompoundMap section = srcSection.getValue();
-        if (!section.containsKey("Blocks")) {
+    private ListTag addMissingTileEntities(int cubeX, int cubeY, int cubeZ, ListTag tileEntities, CompoundTag section) {
+        if (!section.contains("Blocks")) {
             return tileEntities;
         }
-        final IntTag zeroTag = new IntTag("", 0);
 
-        byte[] blocks = ((ByteArrayTag) section.get("Blocks")).getValue();
-        byte[] add = section.containsKey("Add") ? ((ByteArrayTag) section.get("Add")).getValue() : null;
-        byte[] add2neid = section.containsKey("Add2") ? ((ByteArrayTag) section.get("Add2")).getValue() : null;
+        byte[] blocks = section.getByteArray("Blocks");
+        byte[] add = section.getByteArray("Add", null);
+        byte[] add2neid = section.getByteArray("Add2", null);
 
         Map<Integer, CompoundTag> teMap = new HashMap<>();
-        for (CompoundTag tag : tileEntities.getValue()) {
-            CompoundMap te = tag.getValue();
-            int x = ((Number) te.getOrDefault("x", zeroTag).getValue()).intValue();
-            int y = ((Number) te.getOrDefault("y", zeroTag).getValue()).intValue();
-            int z = ((Number) te.getOrDefault("z", zeroTag).getValue()).intValue();
+        for (Tag tag : tileEntities) {
+            CompoundTag te = (CompoundTag) tag;
+            int x = te.getInt("x", 0);
+            int y = te.getInt("y", 0);
+            int z = te.getInt("z", 0);
             int idx = y & 0xF << 8 | z & 0xF << 4 | x & 0xF;
-            teMap.put(idx, tag);
+            teMap.put(idx, te);
         }
         for (int i = 0; i < 4096; i++) {
             int x = i & 15;
@@ -364,16 +376,17 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
             int id = (toAdd << 8) | (blocks[i] & 0xFF);
             String teId = TE_REGISTRY.get(id);
             if (teId != null && !teMap.containsKey(i)) {
-                CompoundMap map = new CompoundMap();
-                map.put(new StringTag("id", teId));
-                map.put(new IntTag("x", cubeX * 16 + x));
-                map.put(new IntTag("y", cubeY * 16 + y));
-                map.put(new IntTag("z", cubeZ * 16 + z));
-                CompoundTag tag = new CompoundTag("", map);
+                CompoundTag tag = new CompoundTag();
+                tag.put("id", new StringTag(teId));
+                tag.put("x", new IntTag(cubeX * 16 + x));
+                tag.put("y", new IntTag(cubeY * 16 + y));
+                tag.put("z", new IntTag(cubeZ * 16 + z));
                 teMap.put(i, tag);
             }
         }
-        return new ListTag<>(tileEntities.getName(), CompoundTag.class, new ArrayList<>(teMap.values()));
+        ListTag tileEntitiesList = new ListTag(TagType.COMPOUND);
+        tileEntitiesList.addAll(teMap.values());
+        return tileEntitiesList;
     }
 
     private static int getNibble(byte[] array, int i) {
@@ -383,8 +396,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
     }
 
     private CompoundTag fixSection(CompoundTag srcSection) {
-        ByteArrayTag data = (ByteArrayTag) srcSection.getValue().get("Blocks");
-        byte[] ids = data.getValue();
+        byte[] ids = srcSection.getByteArray("Blocks");
         // TODO: handle it the forge way
         for (int i = 0; i < ids.length; i++) {
             if (ids[i] == 7) { // bedrock
@@ -394,57 +406,58 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         return srcSection;
     }
 
-    private CompoundTag makeLightingInfo(CompoundMap srcLevel) {
-        IntArrayTag heightmap = new IntArrayTag("LastHeightMap", (int[]) srcLevel.get("HeightMap").getValue());
-        CompoundMap lightingInfoMap = new CompoundMap();
-        lightingInfoMap.put(heightmap);
-        return new CompoundTag("LightingInfo", lightingInfoMap);
+    private CompoundTag makeLightingInfo(CompoundTag srcLevel) {
+        IntArrayTag heightmap = new IntArrayTag(srcLevel.getIntArray("HeightMap"));
+        CompoundTag lightingInfoMap = new CompoundTag();
+        lightingInfoMap.put("LastHeightMap", heightmap);
+        return lightingInfoMap;
     }
 
-    @SuppressWarnings("unchecked")
-    private ListTag<CompoundTag> filterEntities(ListTag<CompoundTag> entities, int cubeY) {
+    private ListTag filterEntities(ListTag entities, int cubeY) {
         double yMin = cubeY * 16;
         double yMax = yMin + 16;
-        List<CompoundTag> cubeEntities = new ArrayList<>();
-        for (CompoundTag entityTag : entities.getValue()) {
-            List<DoubleTag> pos = ((ListTag<DoubleTag>) entityTag.getValue().get("Pos")).getValue();
-            double y = pos.get(1).getValue();
+        ListTag cubeEntities = new ListTag(TagType.COMPOUND);
+        for (Tag entityTag : entities) {
+            CompoundTag entity = (CompoundTag) entityTag;
+            ListTag pos = entity.getList("Pos");
+            double y = pos.getDouble(1);
             if (y >= yMin && y < yMax) {
-                cubeEntities.add(entityTag);
+                cubeEntities.add(entity);
             }
         }
-        return new ListTag<>(entities.getName(), CompoundTag.class, cubeEntities);
+        return cubeEntities;
     }
 
-    @SuppressWarnings("unchecked")
-    private ListTag<?> filterTileEntities(ListTag<?> tileEntities, int cubeY) {
+    private ListTag filterTileEntities(ListTag tileEntities, int cubeY) {
         // empty list is list of EndTags
-        if (tileEntities.getValue().isEmpty()) {
+        if (tileEntities.isEmpty()) {
             return tileEntities;
         }
         int yMin = cubeY * 16;
         int yMax = yMin + 16;
-        List<CompoundTag> cubeTEs = new ArrayList<>();
-        for (CompoundTag teTag : ((ListTag<CompoundTag>) tileEntities).getValue()) {
-            int y = ((IntTag) teTag.getValue().get("y")).getValue();
+        ListTag cubeTEs = new ListTag(TagType.COMPOUND);
+        for (Tag tileEntityTag : tileEntities) {
+            CompoundTag teTag = (CompoundTag) tileEntityTag;
+            int y = teTag.getInt("y");
             if (y >= yMin && y < yMax) {
                 cubeTEs.add(teTag);
             }
         }
-        return new ListTag<>(tileEntities.getName(), CompoundTag.class, cubeTEs);
+        return cubeTEs;
     }
 
-    private ListTag<CompoundTag> filterTileTicks(ListTag<CompoundTag> tileTicks, int cubeY) {
+    private ListTag filterTileTicks(ListTag tileTicks, int cubeY) {
         int yMin = cubeY * 16;
         int yMax = yMin + 16;
-        List<CompoundTag> cubeTicks = new ArrayList<>();
-        for (CompoundTag tileTick : tileTicks.getValue()) {
-            int y = ((IntTag) tileTick.getValue().get("y")).getValue();
+        ListTag cubeTicks = new ListTag(TagType.COMPOUND);
+        for (Tag tileTickTag : tileTicks) {
+            CompoundTag tileTick = (CompoundTag) tileTickTag;
+            int y = tileTick.getInt("y");
             if (y >= yMin && y < yMax) {
                 cubeTicks.add(tileTick);
             }
         }
-        return new ListTag<>(tileTicks.getName(), CompoundTag.class, cubeTicks);
+        return cubeTicks;
     }
 
 }

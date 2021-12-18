@@ -23,12 +23,12 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.TagType;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -53,22 +53,18 @@ public class ReplaceEditTask extends BaseEditTask {
     @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        CompoundTag level = cubeTag.getCompound("Level");
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
         this.markCubePopulated(level);
 
-        CompoundMap sectionDetails;
-        try {
-            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-        } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
-            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
-            return outCubes;
-        }
+        CompoundTag sectionDetails = level.getList("Sections", TagType.COMPOUND).getCompound(0);
 
-        byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
-        byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+        byte[] blocks = sectionDetails.getByteArray("Blocks");
+        byte[] meta = sectionDetails.getByteArray("Data");
+        if(blocks.length != 4096 || meta.length != 2048)
+            throw new RuntimeException("Cube contains invalid Blocks or Data arrays!");
 
         if(inBlockMeta == -1) { //-1 is a sentinel flag, meaning "any block metadata"
             for (int i = 0; i < 4096; i++) {

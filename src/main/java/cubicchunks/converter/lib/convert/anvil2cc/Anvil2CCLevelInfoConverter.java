@@ -23,18 +23,12 @@
  */
 package cubicchunks.converter.lib.convert.anvil2cc;
 
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.StringTag;
-import com.flowpowered.nbt.Tag;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
+import net.kyori.nbt.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,49 +46,28 @@ public class Anvil2CCLevelInfoConverter implements LevelInfoConverter<AnvilChunk
 
     @Override public void convert() throws IOException {
         Utils.createDirectories(dstDir);
-        CompoundTag root;
-        try (NBTInputStream nbtIn = new NBTInputStream(Files.newInputStream(srcDir.resolve("level.dat")));
-            NBTOutputStream nbtOut = new NBTOutputStream(Files.newOutputStream(dstDir.resolve("level.dat")))) {
-            root = (CompoundTag) nbtIn.readTag();
 
-            CompoundMap newRoot = new CompoundMap();
-            for (Tag<?> tag : root.getValue()) {
-                if (tag.getName().equals("Data")) {
-                    CompoundMap data = ((CompoundTag) root.getValue().get("Data")).getValue();
-                    CompoundMap newData = new CompoundMap();
-                    for (Tag<?> dataTag : data) {
-                        if (dataTag.getName().equals("generatorName")) {
-                            String value = (String) dataTag.getValue();
-                            String newValue;
-                            if (value.equalsIgnoreCase("default")) {
-                                newValue = "VanillaCubic";
-                            } else {
-                                newValue = value;
-                            }
-                            newData.put(new StringTag(dataTag.getName(), newValue));
-                        } else {
-                            newData.put(dataTag);
-                        }
-                    }
-                    // put isCubicWorld at the end to overwrite previously existing data, if any
-                    newData.put("isCubicWorld", new ByteTag("isCubicWorld", (byte) 1));
-                    newRoot.put(new CompoundTag(tag.getName(), newData));
-                } else {
-                    newRoot.put(tag);
-                }
-            }
-            Files.createDirectories(dstDir);
+        CompoundTag root = TagIO.readCompressedPath(TagTypeMaps.MINECRAFT, srcDir.resolve("level.dat"));
 
-            nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
+        root.getCompound("Data").put("isCubicWorld", new ByteTag((byte) 1));
 
-            Utils.copyEverythingExcept(srcDir, srcDir, dstDir, file ->
-                    file.toString().contains("level.dat") || file.toString().contains("cubicChunksData.dat") ||
+        String value = root.getCompound("Data").getString("generatorName");
+        if (value.equalsIgnoreCase("default")) {
+            root.getCompound("Data").put("generatorName", new StringTag("VanillaCubic"));
+        }
+
+        Files.createDirectories(dstDir);
+
+        TagIO.writeCompressedPath(TagTypeMaps.MINECRAFT, root, dstDir.resolve("level.dat"));
+
+        Utils.copyEverythingExcept(srcDir, srcDir, dstDir,
+                file -> file.toString().contains("level.dat") ||
+                        file.toString().contains("cubicChunksData.dat") ||
                         Dimensions.getDimensions().stream().anyMatch(dim ->
-                            srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
+                                srcDir.resolve(dim.getDirectory()).resolve("region").equals(file)
                         ),
                 f -> {
                 } // TODO: counting files
-            );
-        }
+        );
     }
 }

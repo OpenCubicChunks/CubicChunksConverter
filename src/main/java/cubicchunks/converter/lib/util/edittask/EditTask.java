@@ -23,12 +23,11 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -37,7 +36,7 @@ import java.util.List;
 public interface EditTask {
     /**
      * @param cubeTag The cube to be modified. The {@link Vector3i} is in cube coordinates, not block
-     * @return The modified cube/s. The {@link CompoundMap} can be null, if so the cube will be regenerated the next time it's loaded by the game
+     * @return The modified cube/s. The {@link CompoundTag} can be null, if so the cube will be regenerated the next time it's loaded by the game
      */
     @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority);
 

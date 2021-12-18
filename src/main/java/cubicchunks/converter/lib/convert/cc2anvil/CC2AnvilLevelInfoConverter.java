@@ -23,17 +23,15 @@
  */
 package cubicchunks.converter.lib.convert.cc2anvil;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.StringTag;
-import com.flowpowered.nbt.Tag;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.util.Utils;
 import cubicchunks.converter.lib.convert.LevelInfoConverter;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.StringTag;
+import net.kyori.nbt.TagIO;
+import net.kyori.nbt.TagTypeMaps;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -51,46 +49,28 @@ public class CC2AnvilLevelInfoConverter implements LevelInfoConverter<CubicChunk
 
     @Override public void convert() throws IOException {
         Utils.forEachDirectory(dstPath, dir -> {
-            CompoundTag root;
-            try (NBTInputStream nbtIn = new NBTInputStream(Files.newInputStream(srcPath.resolve("level.dat")));
-                NBTOutputStream nbtOut = new NBTOutputStream(Files.newOutputStream(dir.resolve("level.dat")))) {
-                root = (CompoundTag) nbtIn.readTag();
+            CompoundTag root = TagIO.readCompressedPath(TagTypeMaps.MINECRAFT, srcPath.resolve("level.dat"));
+            
+            root.remove("isCubicWorld");
+            root.getCompound("Data")
+                .put("generatorName", new StringTag(getGeneratorName(root.getCompound("Data").getString("generatorName"))));
 
-                CompoundMap newRoot = new CompoundMap();
-                for (Tag<?> tag : root.getValue()) {
-                    if (tag.getName().equals("Data")) {
-                        CompoundTag data = (CompoundTag) tag;
-                        CompoundMap newDataMap = new CompoundMap();
-                        for (Tag<?> dataTag : data.getValue()) {
-                            if (dataTag.getName().equals("isCubicWorld")) {
-                                continue;
-                            }
-                            if (dataTag.getName().equalsIgnoreCase("generatorName")) {
-                                newDataMap.put(new StringTag(dataTag.getName(), getGeneratorName((String) dataTag.getValue())));
-                            } else {
-                                newDataMap.put(dataTag);
-                            }
-                        }
-                        newRoot.put(new CompoundTag("Data", newDataMap));
-                    } else {
-                        newRoot.put(tag);
-                    }
-                }
-                Files.createDirectories(dir);
+            Files.createDirectories(dir);
 
-                nbtOut.writeTag(new CompoundTag(root.getName(), newRoot));
+            TagIO.writeCompressedPath(TagTypeMaps.MINECRAFT, root, dstPath.resolve("level.dat"));
 
-                Utils.copyEverythingExcept(srcPath, srcPath, dir, file ->
-                        file.toString().contains("level.dat") || file.toString().endsWith("custom_generator_settings.json")
-                                || file.toString().endsWith("cubicChunksData.dat") || file.toString().endsWith("cubicchunks_spawncubes.dat") ||
+            Utils.copyEverythingExcept(srcPath, srcPath, dir,
+                    file -> file.toString().contains("level.dat") ||
+                            file.toString().endsWith("custom_generator_settings.json") ||
+                            file.toString().endsWith("cubicChunksData.dat") ||
+                            file.toString().endsWith("cubicchunks_spawncubes.dat") ||
                             Dimensions.getDimensions().stream().anyMatch(dim ->
-                                srcPath.resolve(dim.getDirectory()).resolve("region2d").equals(file)
-                                    || srcPath.resolve(dim.getDirectory()).resolve("region3d").equals(file)
+                                    srcPath.resolve(dim.getDirectory()).resolve("region2d").equals(file) ||
+                                            srcPath.resolve(dim.getDirectory()).resolve("region3d").equals(file)
                             ),
                     f -> {
                     } // TODO: counting files
-                );
-            }
+            );
         });
     }
 
