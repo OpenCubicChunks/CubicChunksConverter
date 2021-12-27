@@ -128,16 +128,16 @@ public class Utils {
             throw new UnsupportedOperationException();
         }
 
-        try {
-            return Files.list(f).map(p -> countFiles_do(p)).reduce((x, y) -> x + y).orElse(0);
+        try (Stream<Path> stream = Files.list(f)) {
+            return stream.mapToInt(Utils::countFiles_do).sum();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     public static void copyEverythingExcept(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy) throws IOException {
-        try {
-            Files.list(file).forEach(f -> {
+        try (Stream<Path> stream = Files.list(file)) {
+            stream.forEach(f -> {
                 if (!excluded.test(f)) {
                     try {
                         copyFile(f, srcDir, dstDir);
