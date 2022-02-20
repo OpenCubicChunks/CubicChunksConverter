@@ -153,11 +153,11 @@ public class Utils {
         try {
             Files.copy(testPath1, testPath2, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
             canCopyFileAttributes = true;
+            Files.delete(testPath2);
         } catch (IOException ignore) {
             canCopyFileAttributes = false;
         } finally {
             Files.delete(testPath1);
-            Files.delete(testPath2);
         }
         copyEverythingExceptInternal(file, srcDir, dstDir, excluded, onCopy, canCopyFileAttributes);
     }
