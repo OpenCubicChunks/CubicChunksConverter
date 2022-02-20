@@ -37,6 +37,11 @@ public class KeepEditTask extends BaseEditTask {
         srcBoxes.add(srcBox);
     }
 
+    @Override
+    public boolean handlesDimension(String directoryName) {
+        return true;
+    }
+
     @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         throw new IllegalStateException("KeepEditTask actOnCube should never be called as it doesn't request cube data");
     }

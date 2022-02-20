@@ -42,8 +42,8 @@ public interface EditTask {
     @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority);
 
     // TODO: have each task actually specify dimensions somehow
-    default String getDimension() {
-        return ""; // overworld
+    default boolean handlesDimension(String directoryName) {
+        return directoryName.isEmpty(); // overworld
     }
 
     /** 

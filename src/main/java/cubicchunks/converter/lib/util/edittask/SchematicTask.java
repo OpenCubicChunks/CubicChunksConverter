@@ -127,8 +127,8 @@ public class SchematicTask extends BaseEditTask {
     }
 
     @Override
-    public String getDimension() {
-        return dimension;
+    public boolean handlesDimension(String dirName) {
+        return dimension.equals(dirName);
     }
 
     @Nonnull @Override

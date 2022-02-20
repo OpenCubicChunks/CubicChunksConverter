@@ -26,6 +26,7 @@ package cubicchunks.converter.lib.convert.io;
 import com.carrotsearch.hppc.IntArrayList;
 import com.carrotsearch.hppc.cursors.IntCursor;
 import cubicchunks.converter.lib.Dimension;
+import cubicchunks.converter.lib.Dimensions;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
@@ -72,15 +73,20 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
             @SuppressWarnings("unchecked") List<EditTask> tasks = (List<EditTask>) config.getValue("relocations");
 
             for (EditTask task : tasks) {
-                String dim = task.getDimension();
-                regionBoundingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
-                createIfMissingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
+                // TODO: handle dimensions better
+                for (Dimension dim : Dimensions.getDimensions()) {
+                    if(!task.handlesDimension(dim.getDirectory())) {
+                        continue;
+                    }
+                    regionBoundingBoxes.computeIfAbsent(dim.getDirectory(), x -> new ArrayList<>());
+                    createIfMissingBoxes.computeIfAbsent(dim.getDirectory(), x -> new ArrayList<>());
 
-                List<BoundingBox> srcBoxes = task.getSrcBoxes();
-                srcBoxes.forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
-                task.getDstBoxes().forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
-                if (task.createSrcCubesIfMissing()) {
-                    this.createIfMissingBoxes.get(dim).addAll(srcBoxes);
+                    List<BoundingBox> srcBoxes = task.getSrcBoxes();
+                    srcBoxes.forEach(box -> regionBoundingBoxes.get(dim.getDirectory()).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                    task.getDstBoxes().forEach(box -> regionBoundingBoxes.get(dim.getDirectory()).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                    if(task.createSrcCubesIfMissing()) {
+                        this.createIfMissingBoxes.get(dim.getDirectory()).addAll(srcBoxes);
+                    }
                 }
             }
         }

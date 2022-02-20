@@ -169,7 +169,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
             int cubeZ = (Integer) level.get("z").getValue();
 
             for (EditTask task : this.relocateTasks) {
-                if (!task.getDimension().equals(dimension.getDirectory())) {
+                if (!task.handlesDimension(dimension.getDirectory())) {
                     continue;
                 }
                 task.initialise(config);
