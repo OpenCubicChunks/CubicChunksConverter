@@ -69,7 +69,7 @@ public class HeadlessConverter {
 
     private static void convert(HeadlessCommandContext context) {
         AtomicBoolean failed = new AtomicBoolean(false);
-        Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoader(context.getInFormat(), context.getOutFormat(), context.getConverterName());
+        Function<Consumer<Throwable>, ConverterConfig> configLoader = Registry.getConfigLoaderById(context.getInFormat(), context.getOutFormat(), context.getConverterName());
         ConverterConfig conf = new ConverterConfig(new HashMap<>());
         if (configLoader != null) {
             try {

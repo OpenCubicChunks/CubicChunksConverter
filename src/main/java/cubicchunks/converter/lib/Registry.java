@@ -217,9 +217,18 @@ public class Registry {
 
     public static Function<Consumer<Throwable>, ConverterConfig> getConfigLoader(String inputName, String outputName, String converterName) {
         ClassTriple<?, ?, ChunkDataConverter<?, ?>> triple = new ClassTriple<>(
-                getReaderClass(inputName),
-                getWriterClass(outputName),
-                getConverterClass(new StringTriple(inputName, outputName, converterName))
+            getReaderClass(inputName),
+            getWriterClass(outputName),
+            getConverterClass(new StringTriple(inputName, outputName, converterName))
+        );
+        return configLoaders.get(triple);
+    }
+
+    public static Function<Consumer<Throwable>, ConverterConfig> getConfigLoaderById(String inId, String outId, String converterId) {
+        ClassTriple<?, ?, ChunkDataConverter<?, ?>> triple = new ClassTriple<>(
+            getReaderClassById(inId),
+            getWriterClassById(outId),
+            getConverterClassById(new StringTriple(inId, outId, converterId))
         );
         return configLoaders.get(triple);
     }
