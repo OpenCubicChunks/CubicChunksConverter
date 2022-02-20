@@ -144,11 +144,29 @@ public class Utils {
     }
 
     public static void copyEverythingExcept(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy) throws IOException {
+        // workaround for WSL: windows filesystem mounted on WSL doesn't support copying file attributes
+        String testFileName = "__CC_CONVERTER_TEST_FILE_NAME_786432879129048";
+        Path testPath1 = dstDir.resolve(testFileName);
+        Path testPath2 = dstDir.resolve(testFileName + "_OUT");
+        Files.write(testPath1, new byte[0]);
+        boolean canCopyFileAttributes;
+        try {
+            Files.copy(testPath1, testPath2, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+            canCopyFileAttributes = true;
+        } catch (IOException ignore) {
+            canCopyFileAttributes = false;
+        } finally {
+            Files.delete(testPath1);
+            Files.delete(testPath2);
+        }
+        copyEverythingExceptInternal(file, srcDir, dstDir, excluded, onCopy, canCopyFileAttributes);
+    }
+    private static void copyEverythingExceptInternal(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy, boolean canCopyAttributes) throws IOException{
         try (Stream<Path> stream = Files.list(file)) {
             stream.forEach(f -> {
                 if (!excluded.test(f)) {
                     try {
-                        copyFile(f, srcDir, dstDir);
+                        copyFile(f, srcDir, dstDir, canCopyAttributes);
                         if (Files.isRegularFile(f)) {
                             onCopy.accept(f);
                         }
@@ -167,11 +185,12 @@ public class Utils {
         }
     }
 
-    public static void copyFile(Path srcFile, Path srcDir, Path dstDir) throws IOException {
+    public static void copyFile(Path srcFile, Path srcDir, Path dstDir, boolean canCopyFileAttributes) throws IOException {
         Path relative = srcDir.relativize(srcFile);//
         Path dstFile = dstDir.resolve(relative);
 
         // TODO: handle symlinks
+        // workaround for WSL: Windows filesystem mounted on WSL doesn't allow copying directories
         Files.createDirectories(dstFile.getParent());
         if (Files.isDirectory(srcFile)) {
             if(!Files.exists(dstFile)) {
@@ -179,7 +198,11 @@ public class Utils {
             }
             return;
         }
-        Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        if (canCopyFileAttributes) {
+            Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        } else {
+            Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     public static CompoundTag readCompressed(InputStream is) throws IOException {
