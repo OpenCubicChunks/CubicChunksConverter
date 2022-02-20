@@ -58,9 +58,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,21 +77,28 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
     private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation2D>>> providers2d = new WeakHashMap<>();
     private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation3D>>> providers3d = new WeakHashMap<>();
 
-    private final List<BoundingBox> regionBoundingBoxes;
+    private final Map<String, List<BoundingBox>> regionBoundingBoxes = new HashMap<>();
+    private final Map<String, List<BoundingBox>> createIfMissingBoxes = new HashMap<>();
 
     public CubicChunkReader(Path srcDir, ConverterConfig config) {
         super(srcDir, (dim, path) -> Files.exists(getDimensionPath(dim, path)) ? createSave(getDimensionPath(dim, path)) : null);
         loadThread = Thread.currentThread();
         if(config.hasValue("relocations")) {
-            this.regionBoundingBoxes = new ArrayList<>();
             @SuppressWarnings("unchecked") List<EditTask> tasks = (List<EditTask>) config.getValue("relocations");
 
             for (EditTask task : tasks) {
-                task.getSrcBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
-                task.getDstBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                String dim = task.getDimension();
+                regionBoundingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
+                createIfMissingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
+
+                List<BoundingBox> srcBoxes = task.getSrcBoxes();
+                srcBoxes.forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                task.getDstBoxes().forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                if (task.createSrcCubesIfMissing()) {
+                    this.createIfMissingBoxes.get(dim).addAll(srcBoxes);
+                }
             }
-        } else
-            regionBoundingBoxes = null;
+        }
     }
 
     private static Path getDimensionPath(Dimension d, Path worldDir) {
@@ -118,6 +127,12 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
 
             List<IRegionProvider<EntryLocation3D>> regionProviders = providers3d.get(save);
 
+            // TODO: efficient hashset for this
+            Set<Vector3i> toCreateIfMissing = new HashSet<>();
+            List<BoundingBox> createIfMissingList = createIfMissingBoxes.get(dim.getDirectory());
+            if (createIfMissingList != null) {
+                createIfMissingList.forEach(box -> box.forEach(toCreateIfMissing::add));
+            }
             CheckedConsumer<EntryLocation3D, IOException> cons = interruptibleConsumer(loc -> {
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
                 chunksMap.computeIfAbsent(loc2d, l -> {
@@ -126,7 +141,12 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     chunks.add(new AbstractMap.SimpleEntry<>(loc2d, arr));
                     return arr;
                 }).add(loc.getEntryY());
+                if (!toCreateIfMissing.isEmpty()) {
+                    toCreateIfMissing.remove(new Vector3i(loc.getEntryX(), loc.getEntryY(), loc.getEntryZ()));
+                }
             });
+
+            List<BoundingBox> regionBoundingBoxList = regionBoundingBoxes.get(dim.getDirectory());
 
             for (int i = 0; i < regionProviders.size(); i++) {
                 IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
@@ -136,8 +156,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                         Vector3i regionPos = toRegionPos(key);
                         boolean filtered = true;
                         try {
-                            if(regionBoundingBoxes != null) {
-                                for (BoundingBox regionBox: regionBoundingBoxes) {
+                            if(regionBoundingBoxList != null) {
+                                for (BoundingBox regionBox: regionBoundingBoxList) {
                                     if (regionBox.intersects(regionPos.getX(), regionPos.getY(), regionPos.getZ())) {
                                         filtered = false;
                                     }
@@ -159,8 +179,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                         Vector3i regionPos = toRegionPos(regionKey);
                         boolean filtered = true;
 
-                        if(regionBoundingBoxes != null) {
-                            for (BoundingBox regionBox: regionBoundingBoxes) {
+                        if(regionBoundingBoxList != null) {
+                            for (BoundingBox regionBox: regionBoundingBoxList) {
                                 if (regionBox.intersects(regionPos.getX(), regionPos.getY(), regionPos.getZ())) {
                                     filtered = false;
                                 }
@@ -188,6 +208,9 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                         reg.close();
                     });
                 }
+            }
+            for (Vector3i vector3i : toCreateIfMissing) {
+                cons.accept(new EntryLocation3D(vector3i.getX(), vector3i.getY(), vector3i.getZ()));
             }
         }
         return dimensions;
@@ -237,8 +260,8 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     int y = yCursor.value;
                     ByteBuffer cube;
                     try {
-                        cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                        EntryLocation3D location = new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ());
+                        cube = save.load(location, true).orElse(Utils.createAirCubeBuffer(location));
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (!errorHandler.test(e)) {
@@ -250,7 +273,6 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                 }
                 CubicChunksColumnData data = new CubicChunksColumnData(dim, pos2d, column, cubes);
                 consumer.accept(data);
-
             });
         }
     }

@@ -41,10 +41,22 @@ public interface EditTask {
      */
     @Nonnull List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority);
 
+    // TODO: have each task actually specify dimensions somehow
+    default String getDimension() {
+        return ""; // overworld
+    }
+
     /** 
      * Called ONCE per task, before any cubes are sent
      */
     default void initialise(EditTaskContext.EditTaskConfig config) {}
+
+    /**
+     * @return boolean indicating whether cubes that don't exist should be created by the reader
+     */
+    default boolean createSrcCubesIfMissing() {
+        return false;
+    }
 
     /**
      * @return A list of bounding boxes describing which cubes this task wants to recieve in {@link EditTask#actOnCube(Vector3i, EditTaskContext.EditTaskConfig, CompoundTag, long)}

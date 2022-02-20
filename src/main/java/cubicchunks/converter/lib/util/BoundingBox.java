@@ -24,6 +24,7 @@
 package cubicchunks.converter.lib.util;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -94,6 +95,16 @@ public class BoundingBox {
     }
     public Vector3i getMaxPos() {
         return maxPos;
+    }
+
+    public void forEach(Consumer<? super Vector3i> consumer) {
+        for (int x = minPos.getX(); x <= maxPos.getX(); x++) {
+            for (int y = minPos.getY(); y <= maxPos.getY(); y++) {
+                for (int z = minPos.getZ(); z <= maxPos.getZ(); z++) {
+                    consumer.accept(new Vector3i(x, y, z));
+                }
+            }
+        }
     }
 
     @Override

@@ -328,7 +328,7 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         // make sure the 0-15 range is there because it's using vanilla generator which expects it to be the case
         for (int y = 0; y < 16; y++) {
             if (!tags.containsKey(y)) {
-                tags.put(y, emptyCube(x, y, z));
+                tags.put(y, Utils.emptyCube(x, y, z));
             }
         }
         return tags;
@@ -381,43 +381,6 @@ public class Anvil2CCDataConverter implements ChunkDataConverter<AnvilChunkData,
         int shiftedValue = (i & 1) == 0 ? v : (v >> 4);
         return shiftedValue & 0xF;
     }
-
-    private CompoundTag emptyCube(int x, int y, int z) {
-        CompoundMap root = new CompoundMap();
-        {
-            CompoundMap level = new CompoundMap();
-
-            {
-                level.put(new ByteTag("v", (byte) 1));
-                level.put(new IntTag("x", x));
-                level.put(new IntTag("y", y));
-                level.put(new IntTag("z", z));
-
-                level.put(new ByteTag("populated", true));
-                level.put(new ByteTag("fullyPopulated", true));
-                level.put(new ByteTag("isSurfaceTracked", true)); // it's empty, no need to re-track
-
-                // no need for Sections, CC has isEmpty check for that
-
-                level.put(new ByteTag("initLightDone", false));
-
-                level.put(new ListTag<>("Entities", CompoundTag.class, emptyList()));
-                level.put(new ListTag<>("TileEntities", CompoundTag.class, emptyList()));
-
-                level.put(makeEmptyLightingInfo());
-            }
-            root.put(new CompoundTag("Level", level));
-        }
-        return new CompoundTag("", root);
-    }
-
-    private CompoundTag makeEmptyLightingInfo() {
-        IntArrayTag heightmap = new IntArrayTag("LastHeightMap", new int[256]);
-        CompoundMap lightingInfoMap = new CompoundMap();
-        lightingInfoMap.put(heightmap);
-        return new CompoundTag("LightingInfo", lightingInfoMap);
-    }
-
 
     private CompoundTag fixSection(CompoundTag srcSection) {
         ByteArrayTag data = (ByteArrayTag) srcSection.getValue().get("Blocks");

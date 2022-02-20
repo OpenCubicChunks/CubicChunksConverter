@@ -62,21 +62,28 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
     private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation2D>>> providers2d = new WeakHashMap<>();
     private static final Map<SaveCubeColumns, List<IRegionProvider<EntryLocation3D>>> providers3d = new WeakHashMap<>();
 
-    private final List<BoundingBox> regionBoundingBoxes;
+    private final Map<String, List<BoundingBox>> regionBoundingBoxes = new HashMap<>();
+    private final Map<String, List<BoundingBox>> createIfMissingBoxes = new HashMap<>();
 
     public PriorityCubicChunkReader(Path srcDir, ConverterConfig config) {
         super(srcDir, (dim, path) -> Files.exists(getDimensionPath(dim, path)) ? createSave(getDimensionPath(dim, path)) : null);
         loadThread = Thread.currentThread();
         if(config.hasValue("relocations")) {
-            this.regionBoundingBoxes = new ArrayList<>();
             @SuppressWarnings("unchecked") List<EditTask> tasks = (List<EditTask>) config.getValue("relocations");
 
             for (EditTask task : tasks) {
-                task.getSrcBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
-                task.getDstBoxes().forEach(box -> regionBoundingBoxes.add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                String dim = task.getDimension();
+                regionBoundingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
+                createIfMissingBoxes.computeIfAbsent(dim, x -> new ArrayList<>());
+
+                List<BoundingBox> srcBoxes = task.getSrcBoxes();
+                srcBoxes.forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                task.getDstBoxes().forEach(box -> regionBoundingBoxes.get(dim).add(box.asRegionCoords(new Vector3i(16, 16, 16))));
+                if (task.createSrcCubesIfMissing()) {
+                    this.createIfMissingBoxes.get(dim).addAll(srcBoxes);
+                }
             }
-        } else
-            regionBoundingBoxes = null;
+        }
     }
 
     private static Path getDimensionPath(Dimension d, Path worldDir) {
@@ -105,7 +112,14 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
 
             List<IRegionProvider<EntryLocation3D>> regionProviders = providers3d.get(save);
 
-            CheckedConsumer<EntryLocation3D, IOException> cons = interruptibleConsumer(loc -> {
+            // TODO: efficient hashset for this
+            Set<Vector3i> toCreateIfMissing = new HashSet<>();
+            List<BoundingBox> createIfMissingList = createIfMissingBoxes.get(dim.getDirectory());
+            if (createIfMissingList != null) {
+                createIfMissingList.forEach(box -> box.forEach(toCreateIfMissing::add));
+            }
+
+            CheckedConsumer<EntryLocation3D, IOException> addToMap = interruptibleConsumer(loc -> {
                 EntryLocation2D loc2d = new EntryLocation2D(loc.getEntryX(), loc.getEntryZ());
                 chunksMap.computeIfAbsent(loc2d, l -> {
                     increment.run();
@@ -115,6 +129,15 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                 }).add(loc.getEntryY());
             });
 
+            CheckedConsumer<EntryLocation3D, IOException> addFromDisk = interruptibleConsumer(loc -> {
+                addToMap.accept(loc);
+                if (!toCreateIfMissing.isEmpty()) {
+                    toCreateIfMissing.remove(new Vector3i(loc.getEntryX(), loc.getEntryY(), loc.getEntryZ()));
+                }
+            });
+
+            List<BoundingBox> regionBoundingBoxList = regionBoundingBoxes.get(dim.getDirectory());
+
             for (int i = 0; i < regionProviders.size(); i++) {
                 IRegionProvider<EntryLocation3D> p = regionProviders.get(i);
                 if (i == 0) {
@@ -123,8 +146,8 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                         Vector3i regionPos = toRegionPos(key);
                         boolean filtered = true;
                         try {
-                            if(regionBoundingBoxes != null) {
-                                for (BoundingBox regionBox: regionBoundingBoxes) {
+                            if(regionBoundingBoxList != null) {
+                                for (BoundingBox regionBox: regionBoundingBoxList) {
                                     if (regionBox.intersects(regionPos.getX(), regionPos.getY(), regionPos.getZ())) {
                                         filtered = false;
                                     }
@@ -133,7 +156,7 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                                 filtered = false;
                             }
                             if(!filtered) {
-                                reg.forEachKey(cons);
+                                reg.forEachKey(addFromDisk);
                                 reg.close();
                             }
                         } catch (IOException e) {
@@ -146,8 +169,8 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                         Vector3i regionPos = toRegionPos(regionKey);
                         boolean filtered = true;
 
-                        if(regionBoundingBoxes != null) {
-                            for (BoundingBox regionBox: regionBoundingBoxes) {
+                        if(regionBoundingBoxList != null) {
+                            for (BoundingBox regionBox: regionBoundingBoxList) {
                                 if (regionBox.intersects(regionPos.getX(), regionPos.getY(), regionPos.getZ())) {
                                     filtered = false;
                                 }
@@ -170,11 +193,15 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                                     return;
                                 }
                             }
-                            cons.accept(key);
+                            addFromDisk.accept(key);
                         });
                         reg.close();
                     });
                 }
+            }
+
+            for (Vector3i vector3i : toCreateIfMissing) {
+                addToMap.accept(new EntryLocation3D(vector3i.getX(), vector3i.getY(), vector3i.getZ()));
             }
         }
         return dimensions;
@@ -213,8 +240,8 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                             return;
                         }
                         int y = yCursor.value;
-                        ByteBuffer cube = save.load(new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ()), true).orElseThrow(
-                                () -> new IllegalStateException("Expected cube at " + pos2d + " at y=" + y + " in dimension " + dim));
+                        EntryLocation3D location = new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ());
+                        ByteBuffer cube = save.load(location, true).orElse(Utils.createAirCubeBuffer(location));
                         cubes.put(y, new ImmutablePair<>(0L, cube));
                     }
                     PriorityCubicChunksColumnData data = new PriorityCubicChunksColumnData(dim, pos2d, column, cubes, true);

@@ -24,6 +24,7 @@
 package cubicchunks.converter.lib.convert.cc2ccrelocating;
 
 import com.flowpowered.nbt.*;
+import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.conf.command.EditTaskCommands;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
@@ -125,7 +126,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         });
 
         try {
-            Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(inCubeData, this.config);
+            Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(input.getDimension(), inCubeData, this.config);
 
             Set<PriorityCubicChunksColumnData> columnData = new HashSet<>();
             for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
@@ -157,7 +158,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         return compressedData;
     }
 
-    Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> relocateCubeData(Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld, EditTaskContext.EditTaskConfig config) throws IOException {
+    Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> relocateCubeData(Dimension dimension, Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld, EditTaskContext.EditTaskConfig config) throws IOException {
         Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> tagMap = new HashMap<>();
 
         for(Map.Entry<Integer, ImmutablePair<Long, CompoundTag>> entry : cubeDataOld.entrySet()) {
@@ -168,6 +169,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
             int cubeZ = (Integer) level.get("z").getValue();
 
             for (EditTask task : this.relocateTasks) {
+                if (!task.getDimension().equals(dimension.getName())) {
+                    continue;
+                }
                 task.initialise(config);
                 if(!task.readsCubeData()) {
                     continue;

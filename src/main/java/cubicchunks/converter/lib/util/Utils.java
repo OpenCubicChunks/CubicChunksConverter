@@ -23,9 +23,16 @@
  */
 package cubicchunks.converter.lib.util;
 
+import com.flowpowered.nbt.ByteArrayTag;
+import com.flowpowered.nbt.ByteTag;
+import com.flowpowered.nbt.CompoundMap;
 import com.flowpowered.nbt.CompoundTag;
+import com.flowpowered.nbt.IntArrayTag;
+import com.flowpowered.nbt.IntTag;
+import com.flowpowered.nbt.ListTag;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
+import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.util.CheckedConsumer;
 import cubicchunks.regionlib.util.CheckedFunction;
 
@@ -43,16 +50,17 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.InflaterInputStream;
+
+import static java.util.Collections.emptyList;
 
 public class Utils {
 
@@ -199,6 +207,61 @@ public class Utils {
         nbtOut.close();
         bytes.flush();
         return ByteBuffer.wrap(bytes.toByteArray());
+    }
+
+    public static ByteBuffer createAirCubeBuffer(EntryLocation3D loc) {
+        CompoundTag compoundTag = Utils.emptyCube(loc.getEntryX(), loc.getEntryY(), loc.getEntryZ());
+        try {
+            return Utils.writeCompressed(compoundTag, false);
+        } catch(IOException e) {
+            throw new Error("Writing known NBT to ByteBuffer shouldn't throw IOException", e);
+        }
+    }
+
+    public static CompoundTag emptyCube(int x, int y, int z) {
+        CompoundMap root = new CompoundMap();
+        {
+            CompoundMap level = new CompoundMap();
+
+            {
+                level.put(new ByteTag("v", (byte) 1));
+                level.put(new IntTag("x", x));
+                level.put(new IntTag("y", y));
+                level.put(new IntTag("z", z));
+
+                level.put(new ByteTag("populated", true));
+                level.put(new ByteTag("fullyPopulated", true));
+                level.put(new ByteTag("isSurfaceTracked", true)); // it's empty, no need to re-track
+
+
+                level.put(new ListTag<>("Sections", CompoundTag.class, Collections.singletonList(createEmptySectionTag())));
+
+                level.put(new ByteTag("initLightDone", false));
+
+                level.put(new ListTag<>("Entities", CompoundTag.class, emptyList()));
+                level.put(new ListTag<>("TileEntities", CompoundTag.class, emptyList()));
+
+                level.put(makeEmptyLightingInfo());
+            }
+            root.put(new CompoundTag("Level", level));
+        }
+        return new CompoundTag("", root);
+    }
+
+    public static CompoundTag createEmptySectionTag() {
+        CompoundMap sectionData = new CompoundMap();
+        sectionData.put("Blocks", new ByteArrayTag("Blocks", new byte[4096]));
+        sectionData.put("Data", new ByteArrayTag("Data", new byte[2048]));
+        sectionData.put("BlockLight", new ByteArrayTag("BlockLight", new byte[2048]));
+        sectionData.put("SkyLight", new ByteArrayTag("SkyLight", new byte[2048]));
+
+        return new CompoundTag("", sectionData);
+    }
+    private static CompoundTag makeEmptyLightingInfo() {
+        IntArrayTag heightmap = new IntArrayTag("LastHeightMap", new int[256]);
+        CompoundMap lightingInfoMap = new CompoundMap();
+        lightingInfoMap.put(heightmap);
+        return new CompoundTag("LightingInfo", lightingInfoMap);
     }
 
     /**

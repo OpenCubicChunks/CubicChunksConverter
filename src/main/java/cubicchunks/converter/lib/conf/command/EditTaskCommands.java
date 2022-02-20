@@ -46,6 +46,7 @@ public class EditTaskCommands {
         KeepCommand.register(dispatcher);
         SetCommand.register(dispatcher);
         ReplaceCommand.register(dispatcher);
+        SchematicCommand.register(dispatcher);
         ConfigCommand.register(dispatcher);
     }
 

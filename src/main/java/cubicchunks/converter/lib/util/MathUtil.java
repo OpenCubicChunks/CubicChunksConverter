@@ -31,4 +31,30 @@ public class MathUtil {
     public static int log2(int n) {
         return (int) (Math.log(n) / Math.log(2));
     }
+
+    public static int min(int... x) {
+        if (x.length == 0) {
+            return Integer.MIN_VALUE;
+        }
+        int min = x[0];
+        for (int i = 1; i < x.length; i++) {
+            if (x[i] < min) {
+                min = x[i];
+            }
+        }
+        return min;
+    }
+
+    public static int max(int... x) {
+        if (x.length == 0) {
+            return Integer.MAX_VALUE;
+        }
+        int max = x[0];
+        for (int i = 1; i < x.length; i++) {
+            if (x[i] > max) {
+                max = x[i];
+            }
+        }
+        return max;
+    }
 }
