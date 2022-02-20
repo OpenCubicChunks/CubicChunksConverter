@@ -171,10 +171,14 @@ public class Utils {
         Path relative = srcDir.relativize(srcFile);//
         Path dstFile = dstDir.resolve(relative);
 
-        if (Files.exists(dstFile) && Files.isDirectory(dstFile)) {
-            return; // already exists, stop here to avoid DirectoryNotEmptyException
-        }
+        // TODO: handle symlinks
         Files.createDirectories(dstFile.getParent());
+        if (Files.isDirectory(srcFile)) {
+            if(!Files.exists(dstFile)) {
+                Files.createDirectories(dstFile);
+            }
+            return;
+        }
         Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
     }
 
