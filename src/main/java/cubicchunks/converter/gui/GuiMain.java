@@ -24,9 +24,12 @@
 package cubicchunks.converter.gui;
 
 import cubicchunks.converter.headless.HeadlessMain;
+import cubicchunks.converter.lib.util.Utils;
 
 import java.awt.EventQueue;
 import java.awt.GraphicsEnvironment;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class GuiMain {
 
@@ -35,7 +38,13 @@ public class GuiMain {
             HeadlessMain.main(args);
             return;
         }
-        EventQueue.invokeLater(() -> new GuiFrame().init());
+        Path initWorld;
+        if (args.length > 0 && args[0].equals("--inWorld")) {
+            initWorld = Paths.get(args[1]);
+        } else {
+            initWorld = Utils.getApplicationDirectory().resolve("saves").resolve("New World");
+        }
+        EventQueue.invokeLater(() -> new GuiFrame().init(initWorld));
         Thread.sleep(Long.MAX_VALUE);
     }
 }

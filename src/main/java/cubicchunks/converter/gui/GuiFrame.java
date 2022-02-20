@@ -62,7 +62,7 @@ public class GuiFrame extends JFrame {
 
     private JComboBox<ConverterDesc> selectConverter;
 
-    public void init() {
+    public void init(Path initWorld) {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
@@ -76,8 +76,8 @@ public class GuiFrame extends JFrame {
         JPanel mainPanel = new JPanel(new GridBagLayout());
 
         JPanel selection = new JPanel(new GridBagLayout());
-        addSelectFilePanel(selection, false);
-        addSelectFilePanel(selection, true);
+        addSelectFilePanel(selection, false, initWorld);
+        addSelectFilePanel(selection, true, initWorld);
 
         convertBtn = new JButton("Convert");
         progressBar = new JProgressBar();
@@ -174,12 +174,11 @@ public class GuiFrame extends JFrame {
 
     }
 
-    private void addSelectFilePanel(JPanel panel, boolean isSrc) {
+    private void addSelectFilePanel(JPanel panel, boolean isSrc, Path initWorld) {
         JLabel label = new JLabel(isSrc ? "Source: " : "Destination: ");
 
-        Path srcPath = Utils.getApplicationDirectory().resolve("saves").resolve("New World");
-        Path dstPath = getDstForSrc(srcPath, outFormat);
-        JTextField path = new JTextField((isSrc ? srcPath : dstPath).toString());
+        Path dstPath = getDstForSrc(initWorld, outFormat);
+        JTextField path = new JTextField((isSrc ? initWorld : dstPath).toString());
         if (isSrc) {
             this.srcPathField = path;
         } else {
