@@ -144,12 +144,17 @@ public class Utils {
     }
 
     public static void copyEverythingExcept(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy) throws IOException {
+        boolean canCopyFileAttributes = detectCanCopyAttributesForWSL(dstDir);
+        copyEverythingExceptInternal(file, srcDir, dstDir, excluded, onCopy, canCopyFileAttributes);
+    }
+
+    private static boolean detectCanCopyAttributesForWSL(Path dstDir) throws IOException {
         // workaround for WSL: windows filesystem mounted on WSL doesn't support copying file attributes
+        boolean canCopyFileAttributes;
         String testFileName = "__CC_CONVERTER_TEST_FILE_NAME_786432879129048";
         Path testPath1 = dstDir.resolve(testFileName);
         Path testPath2 = dstDir.resolve(testFileName + "_OUT");
         Files.write(testPath1, new byte[0]);
-        boolean canCopyFileAttributes;
         try {
             Files.copy(testPath1, testPath2, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
             canCopyFileAttributes = true;
@@ -159,8 +164,9 @@ public class Utils {
         } finally {
             Files.delete(testPath1);
         }
-        copyEverythingExceptInternal(file, srcDir, dstDir, excluded, onCopy, canCopyFileAttributes);
+        return canCopyFileAttributes;
     }
+
     private static void copyEverythingExceptInternal(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy, boolean canCopyAttributes) throws IOException{
         try (Stream<Path> stream = Files.list(file)) {
             stream.forEach(f -> {
