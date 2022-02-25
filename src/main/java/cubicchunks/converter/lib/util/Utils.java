@@ -226,8 +226,9 @@ public class Utils {
     }
 
     public static CompoundTag readCompressedCC(InputStream is) throws IOException {
-        BufferedInputStream data = new BufferedInputStream(new GZIPInputStream(is));
-        return (CompoundTag) new NBTInputStream(data, false).readTag();
+        try (NBTInputStream nbtInputStream = new NBTInputStream(new BufferedInputStream(new GZIPInputStream(is)), false)) {
+            return (CompoundTag) nbtInputStream.readTag();
+        }
     }
 
     public static ByteBuffer writeCompressed(CompoundTag tag, boolean prefixFormat) throws IOException {
@@ -235,10 +236,9 @@ public class Utils {
         if (prefixFormat) {
             bytes.write(1); // mark as GZIP
         }
-        NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes)), false);
-        nbtOut.writeTag(tag);
-        nbtOut.close();
-        bytes.flush();
+        try (NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes)), false)) {
+            nbtOut.writeTag(tag);
+        }
         return ByteBuffer.wrap(bytes.toByteArray());
     }
 
