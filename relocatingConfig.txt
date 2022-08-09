@@ -1,1 +1,1 @@
-cut all
+rotate 0 0 0 180

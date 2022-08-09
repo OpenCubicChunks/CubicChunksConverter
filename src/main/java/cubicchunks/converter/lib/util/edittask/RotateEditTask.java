@@ -41,89 +41,33 @@ import java.util.Arrays;
 import java.util.List;
 
 public class RotateEditTask extends TranslationEditTask {
-    private final Vector3i offset;
-
-    private final BoundingBox exclusiveDstBox;
+    private final Vector3i origin;
+    private final int degrees;
 
     public RotateEditTask(Vector3i origin, int degrees) {
-        ///TODO get this to actually work
-        offset = null;
-        exclusiveDstBox = null;
+        ///TODO check if degrees is invalid
+        this.origin = origin;
+        this.degrees = degrees;
     }
 
     @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
-        //TODO get this to actually work
-        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
-
-        int cubeX = cubePos.getX();
-        int cubeY = cubePos.getY();
-        int cubeZ = cubePos.getZ();
-
-        try {
-            //clearing data from old cube
-            if(offset == null || !exclusiveDstBox.intersects(cubeX, cubeY, cubeZ)) {
-                //this is just doing a deep copy of the tag by writing to byte array then back again
-                ByteArrayOutputStream bout = new ByteArrayOutputStream(1024);
-                NBTOutputStream out = new NBTOutputStream(bout, false);
-                out.writeTag(cubeTag);
-
-                NBTInputStream is = new NBTInputStream(new ByteArrayInputStream(bout.toByteArray()), false);
-                CompoundTag tag = (CompoundTag) is.readTag();
-                //copy done here ^
-                CompoundMap srcLevel = (CompoundMap) (tag).getValue().get("Level").getValue();
-                ListTag<?> sectionsTag = (ListTag<?>) srcLevel.get("Sections");
-
-                //handle edge-case where cube exists but sections array is null
-                CompoundMap sectionDetails = sectionsTag == null || sectionsTag.getValue().isEmpty() ? null :
-                        ((CompoundTag)sectionsTag.getValue().get(0)).getValue();
-
-                if(sectionDetails != null) {
-                    //remove optional "Additional" block data array
-                    sectionDetails.remove("Add");
-
-                    ByteArrayTag emptyArray = new ByteArrayTag("", new byte[0]);
-                    Arrays.fill((byte[]) sectionDetails.getOrDefault("Blocks", emptyArray).getValue(), (byte) 0);
-                    Arrays.fill((byte[]) sectionDetails.getOrDefault("Data", emptyArray).getValue(), (byte) 0);
-                    Arrays.fill((byte[]) sectionDetails.getOrDefault("BlockLight", emptyArray).getValue(), (byte) 0);
-                    Arrays.fill((byte[]) sectionDetails.getOrDefault("SkyLight", emptyArray).getValue(), (byte) 0);
-                }
-
-                if(config.shouldRelightSrc()) {
-                    this.markCubeForLightUpdates(srcLevel);
-                }
-                this.markCubePopulated(srcLevel);
-
-                srcLevel.put(new ListTag<>("TileTicks", CompoundTag.class, new ArrayList<>()));
-                srcLevel.put(new ListTag<>("Entities", CompoundTag.class, new ArrayList<>()));
-                srcLevel.put(new ListTag<>("TileEntities", CompoundTag.class, new ArrayList<>()));
-
-                outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, tag)));
-            }
-
-            // adjusting new cube data to be valid
-            CompoundMap level = (CompoundMap)cubeTag.getValue().get("Level").getValue();
-            if (offset != null && !offset.equals(new Vector3i(0, 0, 0))) {
-                int dstX = cubeX + offset.getX();
-                int dstY = cubeY + offset.getY();
-                int dstZ = cubeZ + offset.getZ();
-                level.put(new IntTag("x", dstX));
-                level.put(new IntTag("y", dstY));
-                level.put(new IntTag("z", dstZ));
-
-                if(config.shouldRelightDst()) {
-                    this.markCubeForLightUpdates(level);
-                }
-                this.markCubePopulated(level);
-
-                this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
-                this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
-
-                outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
-            }
-        } catch(IOException e) {
-            e.printStackTrace();
-            throw new UncheckedIOException(e);
+        Vector3i dstOffset;
+        //TOdo this only works if you assume origin is x=0 and z=0
+        if (this.degrees == 90){
+            dstOffset = new Vector3i(cubePos.getX(), cubePos.getY(), cubePos.getZ() * -1);
         }
-        return outCubes;
+        else if (this.degrees == 180){
+            dstOffset = new Vector3i(cubePos.getX() * -1, cubePos.getY(), cubePos.getZ() * -1);
+        }
+        else if (this.degrees == 270){
+            dstOffset = new Vector3i(cubePos.getX() * -1, cubePos.getY(), cubePos.getZ());
+        }
+        else{
+            dstOffset = new Vector3i(cubePos.getX(), cubePos.getY(), cubePos.getZ());
+        }
+        BoundingBox srcBox = new BoundingBox(cubePos.getX(), cubePos.getY(), cubePos.getZ(), cubePos.getX(), cubePos.getY(), cubePos.getZ());
+
+        MoveEditTask task = new MoveEditTask(srcBox, dstOffset);
+        return task.actOnCube(cubePos, config, cubeTag, inCubePriority);
     }
 }
