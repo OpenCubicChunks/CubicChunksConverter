@@ -32,6 +32,7 @@ import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
+import cubicchunks.converter.lib.util.edittask.RotateEditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
@@ -187,7 +188,11 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
                 if(!cubeIsSrc)
                     continue;
 
-                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), config, entry.getValue().getValue(), entry.getKey());
+                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes;
+                if(task.getClass() == RotateEditTask.class && RotateEditTask.cubeDataOld == null){
+                    RotateEditTask.cubeDataOld = cubeDataOld;
+                }
+                outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), config, entry.getValue().getValue(), entry.getKey());
 
                 outputCubes.forEach(positionTagPriority -> {
                     Vector3i cubePos = positionTagPriority.getKey();

@@ -37,16 +37,19 @@ import cubicchunks.converter.lib.util.edittask.RotateEditTask;
 public class RotateCommand {
     public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
         dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("rotate")
-                .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("origin", new Vector3iArgument())
+                .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
+                    .then(RequiredArgumentBuilder.<EditTaskContext, Vector3i>argument("origin", new Vector3iArgument())
                         .then(RequiredArgumentBuilder.<EditTaskContext, Integer>argument("degrees", IntegerArgumentType.integer(-360, 360))
-                        .executes((info) -> {
-                            info.getSource().addEditTask(new RotateEditTask(
-                                    info.getArgument("origin", Vector3i.class),
-                                    IntegerArgumentType.getInteger(info, "degrees"))
-                            );
-                            return 1;
-                        })
+                            .executes((info) -> {
+                                info.getSource().addEditTask(new RotateEditTask(
+                                        info.getArgument("box", BoundingBox.class),
+                                        info.getArgument("origin", Vector3i.class),
+                                        IntegerArgumentType.getInteger(info, "degrees"))
+                                );
+                                return 1;
+                            })
                 ))
+                )
         );
     }
 }

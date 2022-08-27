@@ -1,1 +1,1 @@
-rotate 0 0 0 180
+rotate all 0 0 0 90

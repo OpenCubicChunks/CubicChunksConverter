@@ -24,50 +24,71 @@
 package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.*;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
 
 import javax.annotation.Nonnull;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 public class RotateEditTask extends TranslationEditTask {
     private final Vector3i origin;
     private final int degrees;
+    private static HashMap<Vector3i, CompoundTag> saved;
+    private static HashSet<Vector3i> savedDsts;
+    public static Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld;
 
-    public RotateEditTask(Vector3i origin, int degrees) {
-        ///TODO check if degrees is invalid
+    public RotateEditTask(BoundingBox srcBox, Vector3i origin, int degrees){
+        srcBoxes.add(srcBox);
+        dstBoxes.add(srcBox);
         this.origin = origin;
+        if (degrees % 90 != 0) throw new IllegalArgumentException("Degrees must be divisible by 90");
         this.degrees = degrees;
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
+    public Vector3i rotateDst90Degrees(Vector3i dstOffset){
+        int newX = dstOffset.getX();
+        int newZ = dstOffset.getZ();
+
+        //Subtract origin from points
+        newX-=this.origin.getX();
+        newZ-=this.origin.getZ();
+
+        //Swap X and Y
+        int temp = newZ;
+        newZ = newX;
+        newX = temp;
+        if(newX>0 && newZ > 0) newZ*=-1;
+        else if (newX > 0 && newZ < 0) newX*=-1;
+        else if (newX < 0 && newZ < 0) newZ*=-1;
+        else if (newX < 0 && newZ > 0) newX*=-1;
+
+        //Add origin to points
+        newX+=this.origin.getX();
+        newZ+=this.origin.getZ();
+
+        return new Vector3i(newX, dstOffset.getY(), newZ);
+    }
+
+    public Vector3i calculateDstOffset(Vector3i cubePos, Vector3i dst){
+        return new Vector3i(dst.getX()-cubePos.getX(), dst.getY()-cubePos.getY(), dst.getZ()-cubePos.getZ());
+    }
+
+    @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         Vector3i dstOffset;
-        //TOdo this only works if you assume origin is x=0 and z=0
-        if (this.degrees == 90){
-            dstOffset = new Vector3i(cubePos.getX(), cubePos.getY(), cubePos.getZ() * -1);
+        Vector3i dst = cubePos;
+        int degree = this.degrees;
+        while ((degree/=90) > 0){
+            dst = this.rotateDst90Degrees(dst);
         }
-        else if (this.degrees == 180){
-            dstOffset = new Vector3i(cubePos.getX() * -1, cubePos.getY(), cubePos.getZ() * -1);
-        }
-        else if (this.degrees == 270){
-            dstOffset = new Vector3i(cubePos.getX() * -1, cubePos.getY(), cubePos.getZ());
-        }
-        else{
-            dstOffset = new Vector3i(cubePos.getX(), cubePos.getY(), cubePos.getZ());
-        }
+        dstOffset = this.calculateDstOffset(cubePos, dst);
         BoundingBox srcBox = new BoundingBox(cubePos.getX(), cubePos.getY(), cubePos.getZ(), cubePos.getX(), cubePos.getY(), cubePos.getZ());
 
-        MoveEditTask task = new MoveEditTask(srcBox, dstOffset);
+        CutEditTask task = new CutEditTask(srcBox, dstOffset);
         return task.actOnCube(cubePos, config, cubeTag, inCubePriority);
     }
 }
