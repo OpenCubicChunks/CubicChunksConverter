@@ -30,18 +30,11 @@ import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 public class RotateEditTask extends TranslationEditTask {
     private final Vector3i origin;
     private final int degrees;
-    private static HashMap<Vector3i, CompoundTag> saved;
-    private static HashSet<Vector3i> savedDsts;
-    public static Map<Integer, ImmutablePair<Long, CompoundTag>> cubeDataOld;
-
     public RotateEditTask(BoundingBox srcBox, Vector3i origin, int degrees){
         srcBoxes.add(srcBox);
         dstBoxes.add(srcBox);
@@ -89,6 +82,7 @@ public class RotateEditTask extends TranslationEditTask {
         BoundingBox srcBox = new BoundingBox(cubePos.getX(), cubePos.getY(), cubePos.getZ(), cubePos.getX(), cubePos.getY(), cubePos.getZ());
 
         CutEditTask task = new CutEditTask(srcBox, dstOffset);
+        System.out.println(String.format("Rotator: Cutting %d %d %d to %d %d %d", cubePos.getX(), cubePos.getY(), cubePos.getZ(), dst.getX(), dst.getY(), dst.getZ()));
         return task.actOnCube(cubePos, config, cubeTag, inCubePriority);
     }
 }
