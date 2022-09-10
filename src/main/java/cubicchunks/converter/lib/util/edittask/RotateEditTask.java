@@ -24,12 +24,20 @@
 package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.*;
+import com.flowpowered.nbt.stream.NBTInputStream;
+import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
 
 import javax.annotation.Nonnull;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class RotateEditTask extends TranslationEditTask {
@@ -43,9 +51,9 @@ public class RotateEditTask extends TranslationEditTask {
         this.degrees = degrees;
     }
 
-    public Vector3i rotateDst90Degrees(Vector3i dstOffset){
-        int newX = dstOffset.getX();
-        int newZ = dstOffset.getZ();
+    public Vector3i rotateDst90Degrees(Vector3i dst){
+        int newX = dst.getX();
+        int newZ = dst.getZ();
 
         //Subtract origin from points
         newX-=this.origin.getX();
@@ -55,16 +63,14 @@ public class RotateEditTask extends TranslationEditTask {
         int temp = newZ;
         newZ = newX;
         newX = temp;
-        if(newX>0 && newZ > 0) newZ*=-1;
-        else if (newX > 0 && newZ < 0) newX*=-1;
-        else if (newX < 0 && newZ < 0) newZ*=-1;
-        else if (newX < 0 && newZ > 0) newX*=-1;
+
+        newZ*=-1;
 
         //Add origin to points
         newX+=this.origin.getX();
         newZ+=this.origin.getZ();
 
-        return new Vector3i(newX, dstOffset.getY(), newZ);
+        return new Vector3i(newX, dst.getY(), newZ);
     }
 
     public Vector3i calculateDstOffset(Vector3i cubePos, Vector3i dst){
@@ -72,17 +78,41 @@ public class RotateEditTask extends TranslationEditTask {
     }
 
     @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
-        Vector3i dstOffset;
+        //Calculate Offset
         Vector3i dst = cubePos;
         int degree = this.degrees;
         while ((degree/=90) > 0){
             dst = this.rotateDst90Degrees(dst);
         }
-        dstOffset = this.calculateDstOffset(cubePos, dst);
-        BoundingBox srcBox = new BoundingBox(cubePos.getX(), cubePos.getY(), cubePos.getZ(), cubePos.getX(), cubePos.getY(), cubePos.getZ());
+        Vector3i offset = this.calculateDstOffset(cubePos, dst);
 
-        CutEditTask task = new CutEditTask(srcBox, dstOffset);
-        System.out.println(String.format("Rotator: Cutting %d %d %d to %d %d %d", cubePos.getX(), cubePos.getY(), cubePos.getZ(), dst.getX(), dst.getY(), dst.getZ()));
-        return task.actOnCube(cubePos, config, cubeTag, inCubePriority);
+        //Execute
+        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
+
+        int cubeX = cubePos.getX();
+        int cubeY = cubePos.getY();
+        int cubeZ = cubePos.getZ();
+
+        int dstX = cubeX + offset.getX();
+        int dstY = cubeY + offset.getY();
+        int dstZ = cubeZ + offset.getZ();
+
+        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+
+        Vector3i dstPos = cubePos.add(offset);
+        level.put(new IntTag("x", dstPos.getX()));
+        level.put(new IntTag("y", dstPos.getY()));
+        level.put(new IntTag("z", dstPos.getZ()));
+
+        if(config.shouldRelightDst()) {
+            this.markCubeForLightUpdates(level);
+        }
+        this.markCubePopulated(level);
+
+        this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
+        this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
+
+        outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
+        return outCubes;
     }
 }
