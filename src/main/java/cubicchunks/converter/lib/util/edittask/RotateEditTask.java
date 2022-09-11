@@ -30,6 +30,7 @@ import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
@@ -42,7 +43,7 @@ import java.util.List;
 
 public class RotateEditTask extends TranslationEditTask {
     private final Vector3i origin;
-    private final int degrees;
+    public final int degrees;
     public RotateEditTask(BoundingBox srcBox, Vector3i origin, int degrees){
         srcBoxes.add(srcBox);
         dstBoxes.add(srcBox);
@@ -73,33 +74,28 @@ public class RotateEditTask extends TranslationEditTask {
         return new Vector3i(newX, dst.getY(), newZ);
     }
 
+    public Vector3i rotateDst(Vector3i dstPos, int degrees){
+        int degree = degrees;
+        while ((degree/=90) > 0){
+            dstPos = this.rotateDst90Degrees(dstPos);
+        }
+        return dstPos;
+    }
+
     public Vector3i calculateDstOffset(Vector3i cubePos, Vector3i dst){
         return new Vector3i(dst.getX()-cubePos.getX(), dst.getY()-cubePos.getY(), dst.getZ()-cubePos.getZ());
     }
 
     @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
-        //Calculate Offset
-        Vector3i dst = cubePos;
-        int degree = this.degrees;
-        while ((degree/=90) > 0){
-            dst = this.rotateDst90Degrees(dst);
-        }
-        Vector3i offset = this.calculateDstOffset(cubePos, dst);
-
-        //Execute
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        int cubeX = cubePos.getX();
-        int cubeY = cubePos.getY();
-        int cubeZ = cubePos.getZ();
+        // calculate offset
+        Vector3i dstPos = this.rotateDst(cubePos, this.degrees);
+        Vector3i offset = this.calculateDstOffset(cubePos, dstPos);
 
-        int dstX = cubeX + offset.getX();
-        int dstY = cubeY + offset.getY();
-        int dstZ = cubeZ + offset.getZ();
-
+        // adjusting new cube data to be valid
         CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
 
-        Vector3i dstPos = cubePos.add(offset);
         level.put(new IntTag("x", dstPos.getX()));
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
@@ -112,7 +108,7 @@ public class RotateEditTask extends TranslationEditTask {
         this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
         this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
 
-        outCubes.add(new ImmutablePair<>(new Vector3i(dstX, dstY, dstZ), new ImmutablePair<>(inCubePriority+1, cubeTag)));
+        outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
         return outCubes;
     }
 }
