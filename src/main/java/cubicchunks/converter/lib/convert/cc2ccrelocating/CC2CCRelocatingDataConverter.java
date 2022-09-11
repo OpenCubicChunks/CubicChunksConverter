@@ -32,7 +32,6 @@ import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
-import cubicchunks.converter.lib.util.edittask.RotateEditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
@@ -128,7 +127,6 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
 
         try {
             Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(input.getDimension(), inCubeData, this.config);
-            inPosition = new EntryLocation2D(outCubeData.entrySet().iterator().next().getKey().getX(), outCubeData.entrySet().iterator().next().getKey().getY());
 
             Set<PriorityCubicChunksColumnData> columnData = new HashSet<>();
             for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
@@ -139,10 +137,9 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
                 columnData.add(new PriorityCubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue()), true));
             }
             if (!noReadCubes.isEmpty()) {
-                EntryLocation2D finalInPosition = inPosition;
                 PriorityCubicChunksColumnData currentColumnData = columnData.stream()
-                    .filter(column -> column.getPosition().equals(finalInPosition)).findAny()
-                    .orElseGet(() -> new PriorityCubicChunksColumnData(input.getDimension(), finalInPosition, input.getColumnData(), new HashMap<>(), true));
+                    .filter(column -> column.getPosition().equals(inPosition)).findAny()
+                    .orElseGet(() -> new PriorityCubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>(), true));
                 noReadCubes.forEach((yPos, buffer) -> currentColumnData.getCubeData().putIfAbsent(yPos, buffer));
                 columnData.add(currentColumnData);
             }
