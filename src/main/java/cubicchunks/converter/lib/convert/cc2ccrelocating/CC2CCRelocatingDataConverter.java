@@ -132,8 +132,12 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
             for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
                 Vector2i key = entry.getKey();
                 ByteBuffer column = key.getX() != inPosition.getEntryX() || key.getY() != inPosition.getEntryZ() ? null : input.getColumnData();
+                //TODO test
+                CompoundTag test = readCompressedCC(new ByteArrayInputStream(input.getColumnData().array()));
+                //TODO end of test
 
                 EntryLocation2D location = new EntryLocation2D(key.getX(), key.getY());
+                column = input.getColumnData(); //TODO debug
                 columnData.add(new PriorityCubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue()), true));
             }
             if (!noReadCubes.isEmpty()) {

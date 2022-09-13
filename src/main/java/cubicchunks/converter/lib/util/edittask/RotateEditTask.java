@@ -27,6 +27,7 @@ import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
+import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -86,6 +87,17 @@ public class RotateEditTask extends TranslationEditTask {
         return new Vector3i(dst.getX()-cubePos.getX(), dst.getY()-cubePos.getY(), dst.getZ()-cubePos.getZ());
     }
 
+    public EntryLocation2D rotateDst(EntryLocation2D dstPos, int degrees){
+        Vector3i temp = new Vector3i(dstPos.getEntryX(), 0, dstPos.getEntryZ());
+        temp = rotateDst(temp, this.degrees);
+        return new EntryLocation2D(temp.getX(), temp.getZ());
+    }
+
+    public PriorityCubicChunksColumnData rotateColumn(PriorityCubicChunksColumnData input){
+        EntryLocation2D position = this.rotateDst(input.getPosition(), this.degrees);
+        return input;
+    }
+
     @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
@@ -109,7 +121,6 @@ public class RotateEditTask extends TranslationEditTask {
         this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
 
         outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
-        outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
         return outCubes;
     }
 }
