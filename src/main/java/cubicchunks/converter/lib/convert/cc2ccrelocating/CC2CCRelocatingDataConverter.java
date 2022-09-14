@@ -32,7 +32,9 @@ import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
+import cubicchunks.converter.lib.util.edittask.RotateEditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
+import javafx.scene.transform.Rotate;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -87,15 +89,21 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
     @Override public Set<PriorityCubicChunksColumnData> convert(PriorityCubicChunksColumnData input) {
         Map<Integer, ImmutablePair<Long, ByteBuffer>> inCubes = input.getCubeData();
         Map<Integer, ImmutablePair<Long, ByteBuffer>> cubes = new HashMap<>();
+        boolean hasRotateEditTask = false;
 
         //Split out cubes that are only in a keep tasked bounding box
         Map<Integer, ImmutablePair<Long, ByteBuffer>> noReadCubes = new HashMap<>();
         EntryLocation2D inPosition = input.getPosition();
+        EntryLocation2D rotatedInPosition = null;
         for(Map.Entry<Integer, ImmutablePair<Long, ByteBuffer>> entry : inCubes.entrySet()) {
             boolean anyBoxNeedsData = false;
             boolean intersectsSrcBox = false;
 
             for(EditTask task : relocateTasks) {
+                if (task instanceof RotateEditTask) {
+                    hasRotateEditTask = true;
+                    rotatedInPosition = ((RotateEditTask) task).rotateDst(inPosition, ((RotateEditTask) task).degrees);
+                }
                 List<BoundingBox> srcBoxes = task.getSrcBoxes();
                 for (BoundingBox srcBox : srcBoxes) {
                     if(srcBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
@@ -128,6 +136,17 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         try {
             Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> outCubeData = relocateCubeData(input.getDimension(), inCubeData, this.config);
 
+            if (hasRotateEditTask){
+                inPosition = rotatedInPosition;
+                if (input.getColumnData() != null){
+                    CompoundTag inputTag = readCompressedCC(new ByteArrayInputStream(input.getColumnData().array()));
+                    CompoundMap level = (CompoundMap) inputTag.getValue().get("Level").getValue();
+                    level.put(new IntTag("x", inPosition.getEntryX()));
+                    level.put(new IntTag("z", inPosition.getEntryZ()));
+                    input = new PriorityCubicChunksColumnData(input.getDimension(), inPosition ,Utils.writeCompressed(inputTag, false), input.getCubeData(), true);
+                }
+            }
+
             Set<PriorityCubicChunksColumnData> columnData = new HashSet<>();
             for (Map.Entry<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> entry : outCubeData.entrySet()) {
                 Vector2i key = entry.getKey();
@@ -137,9 +156,11 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
                 columnData.add(new PriorityCubicChunksColumnData(input.getDimension(), location, column, compressCubeData(entry.getValue()), true));
             }
             if (!noReadCubes.isEmpty()) {
+                EntryLocation2D finalInPosition = inPosition;
+                PriorityCubicChunksColumnData finalInput = input;
                 PriorityCubicChunksColumnData currentColumnData = columnData.stream()
-                        .filter(column -> column.getPosition().equals(inPosition)).findAny()
-                        .orElseGet(() -> new PriorityCubicChunksColumnData(input.getDimension(), inPosition, input.getColumnData(), new HashMap<>(), true));
+                        .filter(column -> column.getPosition().equals(finalInPosition)).findAny()
+                        .orElseGet(() -> new PriorityCubicChunksColumnData(finalInput.getDimension(), finalInPosition, finalInput.getColumnData(), new HashMap<>(), true));
                 noReadCubes.forEach((yPos, buffer) -> currentColumnData.getCubeData().putIfAbsent(yPos, buffer));
                 columnData.add(currentColumnData);
             }
