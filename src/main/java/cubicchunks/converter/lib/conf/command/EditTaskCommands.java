@@ -48,6 +48,7 @@ public class EditTaskCommands {
         ReplaceCommand.register(dispatcher);
         SchematicCommand.register(dispatcher);
         ConfigCommand.register(dispatcher);
+        RotateCommand.register(dispatcher);
     }
 
     public static int handleCommand(EditTaskContext context, String command) {
