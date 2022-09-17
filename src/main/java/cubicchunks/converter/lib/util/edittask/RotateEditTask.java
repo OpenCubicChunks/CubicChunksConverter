@@ -112,7 +112,7 @@ public class RotateEditTask extends TranslationEditTask {
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
 
-        if(config.shouldRelightDst()) {
+        if (config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
         this.markCubePopulated(level);
@@ -120,7 +120,42 @@ public class RotateEditTask extends TranslationEditTask {
         this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
         this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
 
-        outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
+
+        CompoundMap sectionDetails;
+        try {
+            sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+            byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
+            byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+
+            byte[] newBlocks = new byte[blocks.length];
+            byte[] newMeta = new byte[meta.length];
+
+            int sideLen=16;
+            int squareLen=sideLen*sideLen;
+
+            for(int i=0; i<this.degrees; i+=90) {
+                for (int y = 0; y < blocks.length / squareLen; y++) {
+                    for (int r = 0; r < sideLen; r++) {
+                        for (int c = 0; c < sideLen; c++) {
+                            //int newIndex = ((c*sideLen)+sideLen-1-r)+(y*squareLen);   //OTHER DIRECTION
+                            int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen);
+                            int oldIndex = ((r * sideLen) + c) + (y * squareLen);
+                            newBlocks[newIndex] = blocks[oldIndex];
+                            EditTask.nibbleSetAtIndex(newMeta, newIndex, EditTask.nibbleGetAtIndex(meta, oldIndex));
+                        }
+                    }
+                }
+                System.arraycopy(newBlocks, 0, blocks, 0, blocks.length);
+                System.arraycopy(newMeta, 0, meta, 0, meta.length);
+            }
+        } catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
+            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
+        }
+
+        outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
         return outCubes;
     }
+
 }
+
+
