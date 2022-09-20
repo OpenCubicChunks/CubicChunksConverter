@@ -42,6 +42,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.material.Directional;
+import org.bukkit.material.Furnace;
+import org.bukkit.material.MaterialData;
+
 public class RotateEditTask extends TranslationEditTask {
     private final Vector3i origin;
     public final int degrees;
@@ -122,6 +129,12 @@ public class RotateEditTask extends TranslationEditTask {
 
 
         CompoundMap sectionDetails;
+        try{
+            sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue();
+        } catch (Exception e){
+            outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
+            return outCubes;
+        }
         try {
             sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
             byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
@@ -141,7 +154,37 @@ public class RotateEditTask extends TranslationEditTask {
                             int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen);
                             int oldIndex = ((r * sideLen) + c) + (y * squareLen);
                             newBlocks[newIndex] = blocks[oldIndex];
-                            EditTask.nibbleSetAtIndex(newMeta, newIndex, EditTask.nibbleGetAtIndex(meta, oldIndex));
+                            int metaData = EditTask.nibbleGetAtIndex(meta, oldIndex); //TODO fix this
+                            //EditTask.nibbleSetAtIndex(newMeta, newIndex, EditTask.nibbleGetAtIndex(meta, oldIndex));
+                            int blockId;
+                            if (newBlocks[newIndex] < 0){
+                                blockId = newBlocks[newIndex]+256;
+                            }
+                            else{
+                                blockId=newBlocks[newIndex];
+                            }
+                            Material block = Material.getMaterial(blockId);
+                            MaterialData blockData = block.getNewData((byte) metaData);
+                            if (blockData instanceof Directional){
+                                System.out.println("Rotating " + block.name());
+                                BlockFace facing = ((Directional) blockData).getFacing();
+                                int degree = degrees;
+                                while ((degree/=90) > 0){
+                                    if (facing == BlockFace.NORTH){
+                                        ((Directional) blockData).setFacingDirection(BlockFace.WEST);
+                                    } else if (facing == BlockFace.WEST) {
+                                        ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
+                                    } else if (facing == BlockFace.SOUTH) {
+                                        ((Directional) blockData).setFacingDirection(BlockFace.EAST);
+                                    } else if (facing == BlockFace.EAST) {
+                                        ((Directional) blockData).setFacingDirection(BlockFace.NORTH);
+                                    } else{
+                                        throw new IllegalArgumentException("Unknown facing value: " + facing.toString());
+                                    }
+                                }
+                                metaData = blockData.getData();
+                            }
+                            EditTask.nibbleSetAtIndex(newMeta, newIndex, metaData);
                         }
                     }
                 }

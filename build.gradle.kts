@@ -8,6 +8,7 @@ import org.gradle.api.internal.HasConvention
 
 buildscript {
     repositories {
+        mavenCentral()
         maven {
             setUrl("https://plugins.gradle.org/m2/")
         }
@@ -74,6 +75,9 @@ repositories {
         setUrl("https://oss.sonatype.org/content/groups/public/")
     }
     maven {
+        setUrl("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
+    }
+    maven {
         name = "mojang"
         setUrl("https://libraries.minecraft.net/")
     }
@@ -86,6 +90,7 @@ dependencies {
     compile("com.google.guava:guava:27.0.1-jre")
     compile("com.mojang:brigadier:1.0.17")
     compile(project(":nbt"))
+    compile("org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT")
     testCompile("junit:junit:4.11")
 }
 
