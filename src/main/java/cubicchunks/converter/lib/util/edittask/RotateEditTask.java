@@ -24,8 +24,6 @@
 package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.*;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.BoundingBox;
@@ -34,19 +32,12 @@ import cubicchunks.converter.lib.util.Vector3i;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import javax.annotation.Nonnull;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.material.Directional;
-import org.bukkit.material.Furnace;
 import org.bukkit.material.MaterialData;
 
 public class RotateEditTask extends TranslationEditTask {
@@ -105,6 +96,25 @@ public class RotateEditTask extends TranslationEditTask {
         return input;
     }
 
+    private byte rotateMetadata(MaterialData blockData){
+        BlockFace facing = ((Directional) blockData).getFacing();
+        int degree = degrees;
+        while ((degree/=90) > 0){
+            if (facing == BlockFace.NORTH){
+                ((Directional) blockData).setFacingDirection(BlockFace.WEST);
+            } else if (facing == BlockFace.WEST) {
+                ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
+            } else if (facing == BlockFace.SOUTH) {
+                ((Directional) blockData).setFacingDirection(BlockFace.EAST);
+            } else if (facing == BlockFace.EAST) {
+                ((Directional) blockData).setFacingDirection(BlockFace.NORTH);
+            } else{
+                throw new IllegalArgumentException("Unknown facing value: " + facing.toString());
+            }
+        }
+        return blockData.getData();
+    }
+
     @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
@@ -129,12 +139,6 @@ public class RotateEditTask extends TranslationEditTask {
 
 
         CompoundMap sectionDetails;
-        try{
-            sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue();
-        } catch (Exception e){
-            outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
-            return outCubes;
-        }
         try {
             sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
             byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
@@ -167,22 +171,7 @@ public class RotateEditTask extends TranslationEditTask {
                             MaterialData blockData = block.getNewData((byte) metaData);
                             if (blockData instanceof Directional){
                                 System.out.println("Rotating " + block.name());
-                                BlockFace facing = ((Directional) blockData).getFacing();
-                                int degree = degrees;
-                                while ((degree/=90) > 0){
-                                    if (facing == BlockFace.NORTH){
-                                        ((Directional) blockData).setFacingDirection(BlockFace.WEST);
-                                    } else if (facing == BlockFace.WEST) {
-                                        ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
-                                    } else if (facing == BlockFace.SOUTH) {
-                                        ((Directional) blockData).setFacingDirection(BlockFace.EAST);
-                                    } else if (facing == BlockFace.EAST) {
-                                        ((Directional) blockData).setFacingDirection(BlockFace.NORTH);
-                                    } else{
-                                        throw new IllegalArgumentException("Unknown facing value: " + facing.toString());
-                                    }
-                                }
-                                metaData = blockData.getData();
+                                metaData = this.rotateMetadata(blockData);
                             }
                             EditTask.nibbleSetAtIndex(newMeta, newIndex, metaData);
                         }
@@ -193,6 +182,7 @@ public class RotateEditTask extends TranslationEditTask {
             }
         } catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
             LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
+            return outCubes;
         }
 
         outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
