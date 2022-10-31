@@ -25,7 +25,6 @@ package cubicchunks.converter.lib.util.edittask;
 
 import com.flowpowered.nbt.*;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
-import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
@@ -37,7 +36,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.bukkit.Material;
-import org.bukkit.block.BlockFace;
 import org.bukkit.material.Directional;
 import org.bukkit.material.MaterialData;
 
@@ -82,39 +80,19 @@ public class RotateEditTask extends TranslationEditTask {
         return dstPos;
     }
 
-    public Vector3i calculateDstOffset(Vector3i cubePos, Vector3i dst){
-        return new Vector3i(dst.getX()-cubePos.getX(), dst.getY()-cubePos.getY(), dst.getZ()-cubePos.getZ());
-    }
-
     public EntryLocation2D rotateDst(EntryLocation2D dstPos, int degrees){
         Vector3i temp = new Vector3i(dstPos.getEntryX(), 0, dstPos.getEntryZ());
         temp = rotateDst(temp, this.degrees);
         return new EntryLocation2D(temp.getX(), temp.getZ());
     }
 
-    public PriorityCubicChunksColumnData rotateColumn(PriorityCubicChunksColumnData input){
-        EntryLocation2D position = this.rotateDst(input.getPosition(), this.degrees);
-        return input;
-    }
-
     private byte rotateMetadata(MaterialData blockData){
-        BlockFace facing = ((Directional) blockData).getFacing();
         int degree = degrees;
+        byte result=blockData.getData();
         while ((degree/=90) > 0){
-            if (facing == BlockFace.NORTH){
-                ((Directional) blockData).setFacingDirection(BlockFace.EAST);
-            } else if (facing == BlockFace.WEST) {
-                ((Directional) blockData).setFacingDirection(BlockFace.NORTH);
-            } else if (facing == BlockFace.SOUTH) {
-                ((Directional) blockData).setFacingDirection(BlockFace.WEST);
-            } else if (facing == BlockFace.EAST) {
-                ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
-            } else if (facing != BlockFace.UP && facing != BlockFace.DOWN){
-                throw new IllegalArgumentException("Unknown facing value: " + facing.toString());
-            }
-            //TODO implement 8 point direction
+            result= (byte) ((((int) result) + 4) % 16);
         }
-        return blockData.getData();
+        return result;
     }
 
     private int rotateMetadata(int blockId, int metaData){
@@ -134,7 +112,6 @@ public class RotateEditTask extends TranslationEditTask {
 
         // calculate offset
         Vector3i dstPos = this.rotateDst(cubePos, this.degrees);
-        Vector3i offset = this.calculateDstOffset(cubePos, dstPos);
 
         // adjusting new cube data to be valid
         CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
@@ -174,7 +151,7 @@ public class RotateEditTask extends TranslationEditTask {
             double xVal = (((pos.get(2).getValue())-8)*-1)+7;
             double yVal = (pos.get(1).getValue());
             List<DoubleTag> newPos = Arrays.asList(new DoubleTag("", xVal), new DoubleTag("", yVal), new DoubleTag("", zVal));
-            entity.put(new ListTag<DoubleTag>("Pos", DoubleTag.class, newPos));
+            entity.put(new ListTag<>("Pos", DoubleTag.class, newPos));
         }
 
         final byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
