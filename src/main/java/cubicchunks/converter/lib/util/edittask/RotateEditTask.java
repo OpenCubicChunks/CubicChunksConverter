@@ -33,6 +33,7 @@ import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.bukkit.Material;
@@ -64,7 +65,7 @@ public class RotateEditTask extends TranslationEditTask {
         newZ = newX;
         newX = temp;
 
-        newZ*=-1;
+        newX*=-1;
 
         //Add origin to points
         newX+=this.origin.getX();
@@ -101,18 +102,31 @@ public class RotateEditTask extends TranslationEditTask {
         int degree = degrees;
         while ((degree/=90) > 0){
             if (facing == BlockFace.NORTH){
-                ((Directional) blockData).setFacingDirection(BlockFace.WEST);
-            } else if (facing == BlockFace.WEST) {
-                ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
-            } else if (facing == BlockFace.SOUTH) {
                 ((Directional) blockData).setFacingDirection(BlockFace.EAST);
-            } else if (facing == BlockFace.EAST) {
+            } else if (facing == BlockFace.WEST) {
                 ((Directional) blockData).setFacingDirection(BlockFace.NORTH);
-            } else{
+            } else if (facing == BlockFace.SOUTH) {
+                ((Directional) blockData).setFacingDirection(BlockFace.WEST);
+            } else if (facing == BlockFace.EAST) {
+                ((Directional) blockData).setFacingDirection(BlockFace.SOUTH);
+            } else if (facing != BlockFace.UP && facing != BlockFace.DOWN){
                 throw new IllegalArgumentException("Unknown facing value: " + facing.toString());
             }
+            //TODO implement 8 point direction
         }
         return blockData.getData();
+    }
+
+    private int rotateMetadata(int blockId, int metaData){
+        if (blockId < 0){
+            blockId+=256;
+        }
+        Material block = Material.getMaterial(blockId);
+        MaterialData blockData = block.getNewData((byte) metaData);
+        if (blockData instanceof Directional){
+            metaData = this.rotateMetadata(blockData);
+        }
+        return metaData;
     }
 
     @Nonnull public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
@@ -125,6 +139,15 @@ public class RotateEditTask extends TranslationEditTask {
         // adjusting new cube data to be valid
         CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
 
+        CompoundMap sectionDetails;
+        try {
+            sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE//POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+        }
+        catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
+            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
+            return outCubes;
+        }
+
         level.put(new IntTag("x", dstPos.getX()));
         level.put(new IntTag("y", dstPos.getY()));
         level.put(new IntTag("z", dstPos.getZ()));
@@ -134,59 +157,54 @@ public class RotateEditTask extends TranslationEditTask {
         }
         this.markCubePopulated(level);
 
-        this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
-        this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);
-
-
-        CompoundMap sectionDetails;
-        try {
-            sectionDetails = ((CompoundTag) ((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-            byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
-            byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
-
-            byte[] newBlocks = new byte[blocks.length];
-            byte[] newMeta = new byte[meta.length];
-
-            int sideLen=16;
-            int squareLen=sideLen*sideLen;
-
-            for(int i=0; i<this.degrees; i+=90) {
-                for (int y = 0; y < blocks.length / squareLen; y++) {
-                    for (int r = 0; r < sideLen; r++) {
-                        for (int c = 0; c < sideLen; c++) {
-                            //int newIndex = ((c*sideLen)+sideLen-1-r)+(y*squareLen);   //OTHER DIRECTION
-                            int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen);
-                            int oldIndex = ((r * sideLen) + c) + (y * squareLen);
-                            newBlocks[newIndex] = blocks[oldIndex];
-                            int metaData = EditTask.nibbleGetAtIndex(meta, oldIndex); //TODO fix this
-                            //EditTask.nibbleSetAtIndex(newMeta, newIndex, EditTask.nibbleGetAtIndex(meta, oldIndex));
-                            int blockId;
-                            if (newBlocks[newIndex] < 0){
-                                blockId = newBlocks[newIndex]+256;
-                            }
-                            else{
-                                blockId=newBlocks[newIndex];
-                            }
-                            Material block = Material.getMaterial(blockId);
-                            MaterialData blockData = block.getNewData((byte) metaData);
-                            if (blockData instanceof Directional){
-                                System.out.println("Rotating " + block.name());
-                                metaData = this.rotateMetadata(blockData);
-                            }
-                            EditTask.nibbleSetAtIndex(newMeta, newIndex, metaData);
-                        }
-                    }
-                }
-                System.arraycopy(newBlocks, 0, blocks, 0, blocks.length);
-                System.arraycopy(newMeta, 0, meta, 0, meta.length);
-            }
-        } catch (NullPointerException | ArrayIndexOutOfBoundsException e) {
-            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
-            return outCubes;
+        // Rotating Tile Entities
+        for (int i=0; i< ((List<?>) (level).get("TileEntities").getValue()).size(); i++){
+            CompoundMap tileEntity = ((CompoundTag) ((List<?>) (level).get("TileEntities").getValue()).get(i)).getValue();
+            int zVal = ((Integer) tileEntity.get("x").getValue());
+            int xVal = ((((Integer) tileEntity.get("z").getValue())-8)*-1)+7;
+            tileEntity.put(new IntTag("x", xVal));
+            tileEntity.put(new IntTag("z", zVal));
         }
 
-        outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
-        return outCubes;
+        // Rotating Entities
+        for (int i=0; i< ((List<?>) (level).get("Entities").getValue()).size(); i++){
+            CompoundMap entity = ((CompoundTag) ((List<?>) (level).get("Entities").getValue()).get(i)).getValue();
+            List<DoubleTag> pos = (List<DoubleTag>) entity.get("Pos").getValue();
+            double zVal = (pos.get(0).getValue());
+            double xVal = (((pos.get(2).getValue())-8)*-1)+7;
+            double yVal = (pos.get(1).getValue());
+            List<DoubleTag> newPos = Arrays.asList(new DoubleTag("", xVal), new DoubleTag("", yVal), new DoubleTag("", zVal));
+            entity.put(new ListTag<DoubleTag>("Pos", DoubleTag.class, newPos));
+        }
+
+        final byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
+        final byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+
+        byte[] newBlocks = new byte[blocks.length];
+        byte[] newMeta = new byte[meta.length];
+
+        int sideLen=16;
+        int squareLen=sideLen*sideLen;
+
+        for(int i=0; i<this.degrees; i+=90) {
+            for (int y = 0; y < blocks.length / squareLen; y++) {
+                for (int r = 0; r < sideLen; r++) {
+                    for (int c = 0; c < sideLen; c++) {
+                        int newIndex = ((c*sideLen)+sideLen-1-r)+(y*squareLen);   //Clockwise
+                        //int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen); //Counter Clockwise
+                        int oldIndex = ((r * sideLen) + c) + (y * squareLen);
+                        newBlocks[newIndex] = blocks[oldIndex];
+                        int metaData = rotateMetadata(newBlocks[newIndex], EditTask.nibbleGetAtIndex(meta, oldIndex));
+                        EditTask.nibbleSetAtIndex(newMeta, newIndex, metaData);
+                    }
+                }
+            }
+            System.arraycopy(newBlocks, 0, blocks, 0, blocks.length);
+            System.arraycopy(newMeta, 0, meta, 0, meta.length);
+        }
+
+    outCubes.add(new ImmutablePair<>(dstPos, new ImmutablePair<>(inCubePriority + 1, cubeTag)));
+    return outCubes;
     }
 
 }
