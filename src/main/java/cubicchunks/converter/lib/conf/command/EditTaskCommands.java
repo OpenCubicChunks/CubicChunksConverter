@@ -37,7 +37,6 @@ public class EditTaskCommands {
 
     private static final CommandDispatcher<EditTaskContext> dispatcher = new CommandDispatcher<>();
 
-
     static {
         CutCommand.register(dispatcher);
         CopyCommand.register(dispatcher);
@@ -47,6 +46,7 @@ public class EditTaskCommands {
         SetCommand.register(dispatcher);
         ReplaceCommand.register(dispatcher);
         SchematicCommand.register(dispatcher);
+        ReTrackCommand.register(dispatcher);
         ConfigCommand.register(dispatcher);
     }
 

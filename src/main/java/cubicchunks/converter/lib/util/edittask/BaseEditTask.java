@@ -39,7 +39,7 @@ public abstract class BaseEditTask implements EditTask {
     protected final List<BoundingBox> srcBoxes = new ArrayList<>();
     protected final List<BoundingBox> dstBoxes = new ArrayList<>();
 
-    protected static final Logger LOGGER = Logger.getLogger(CC2CCRelocatingDataConverter.class.getSimpleName());
+    protected static final Logger LOGGER = Logger.getLogger(BaseEditTask.class.getSimpleName());
 
     @Nonnull @Override public List<BoundingBox> getSrcBoxes() {
         return srcBoxes;
@@ -50,8 +50,7 @@ public abstract class BaseEditTask implements EditTask {
     }
 
     protected void markCubeForLightUpdates(CompoundTag cubeLevelMap) {
-        cubeLevelMap.put("isSurfaceTracked", new ByteTag((byte) 0));
-        cubeLevelMap.put("initLightDone", new ByteTag((byte) 1));
+        this.markCubeForReSurfaceTrack(cubeLevelMap);
 
         if(!cubeLevelMap.contains("LightingInfo", TagType.COMPOUND))
             return;
@@ -59,6 +58,11 @@ public abstract class BaseEditTask implements EditTask {
         CompoundTag lightingInfo = cubeLevelMap.getCompound("LightingInfo");
         Arrays.fill((lightingInfo.getIntArray("LastHeightMap")), Integer.MAX_VALUE);
         lightingInfo.put("EdgeNeedSkyLightUpdate", new ByteTag((byte) 1));
+    }
+
+    protected void markCubeForReSurfaceTrack(CompoundTag cubeLevelMap) {
+        cubeLevelMap.put("isSurfaceTracked", new ByteTag((byte) 0));
+        cubeLevelMap.put("initLightDone", new ByteTag((byte) 1));
     }
 
     public void markCubePopulated(CompoundTag cubeLevelMap) {
