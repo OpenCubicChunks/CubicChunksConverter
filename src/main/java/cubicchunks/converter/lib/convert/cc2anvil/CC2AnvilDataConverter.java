@@ -26,19 +26,13 @@ package cubicchunks.converter.lib.convert.cc2anvil;
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.IntArrayTag;
-import com.flowpowered.nbt.IntTag;
-import com.flowpowered.nbt.ListTag;
-import com.flowpowered.nbt.Tag;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
 import cubicchunks.converter.lib.convert.data.CubicChunksColumnData;
 import cubicchunks.converter.lib.convert.data.MultilayerAnvilChunkData;
 import cubicchunks.regionlib.impl.MinecraftChunkLocation;
+import net.kyori.nbt.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -136,29 +130,20 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
          *  |- Biomes
          *  |- OpacityIndex
          */
-        CompoundMap vanillaMap = new CompoundMap();
+        CompoundTag vanillaTag;
         // TODO: we expect DataVersion to be the same as column for all cubes, this is not necessarily true. Can we do something about it?
         if (column != null) {
-            for (Tag<?> tag : column.getValue()) {
-                if ("Level".equals(tag.getName())) {
-                    CompoundMap level = new CompoundMap();
-                    convertLevel(level, column, cubes, layerIdx);
-                    vanillaMap.put(new CompoundTag("Level", level));
-                } else {
-                    vanillaMap.put(tag);
-                }
-            }
+            vanillaTag = column.copy();
         } else {
-            CompoundMap level = new CompoundMap();
-            convertLevel(level, null, cubes, layerIdx);
-            vanillaMap.put(new CompoundTag("Level", level));
+            vanillaTag = new CompoundTag();
         }
+        CompoundTag level = convertLevel(column, cubes, layerIdx);
+        vanillaTag.put("Level", level);
 
-        return new CompoundTag("", vanillaMap);
-
+        return vanillaTag;
     }
 
-    private void convertLevel(CompoundMap level, @Nullable CompoundTag column, CompoundTag[] cubes, int layerIdx) {
+    private CompoundTag convertLevel(@Nullable CompoundTag column, CompoundTag[] cubes, int layerIdx) {
         /*
          *
          * Vanilla Chunk NBT structure:
@@ -212,105 +197,85 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
          *  |- LightingInfo
          *   |- LastHeightMap
          */
+        CompoundTag level;
         if (column != null) {
-            CompoundMap columnLevel = (CompoundMap) column.getValue().get("Level").getValue();
-            for (Tag<?> tag : columnLevel) {
-                switch (tag.getName()) {
-                    case "x":
-                        level.put(renamedInt(tag, "xPos"));
-                        break;
-                    case "z":
-                        level.put(renamedInt(tag, "zPos"));
-                        break;
-                    case "OpacityIndex":
-                        level.put(getHeightMap(tag, layerIdx));
-                        break;
-                    default:
-                        level.put(tag);
-                }
-            }
+            CompoundTag columnLevel = column.getCompound("Level");
+            level = columnLevel.copy();
+            level.put("xPos", level.remove("x"));
+            level.put("zPos", level.remove("z"));
+            level.put("HeightMap", getHeightMap((ByteArrayTag) level.remove("OpacityIndex"), layerIdx));
+        } else {
+            level = new CompoundTag();
         }
-        // TODO: use existing heightmap? Is it safe?
-        int[] heights = new int[256];
-        Arrays.fill(heights, -999);
-        Tag<?> heightsTag = new IntArrayTag("HeightMap", heights);
-        level.put(heightsTag);
 
         for (CompoundTag cube : cubes) {
             if (cube != null) {
-                CompoundTag cubeLevel = (CompoundTag) cube.getValue().get("Level");
-                for (Tag<?> tag : cubeLevel.getValue()) {
-                    switch (tag.getName()) {
-                        case "x":
-                            level.put(renamedInt(tag, "xPos"));
-                            break;
-                        case "z":
-                            level.put(renamedInt(tag, "zPos"));
-                            break;
-                    }
-                }
+                CompoundTag cubeLevel = cube.getCompound("Level");
+                cubeLevel.put("xPos", cubeLevel.remove("x"));
+                cubeLevel.put("zPos", cubeLevel.remove("z"));
                 break;
             }
         }
 
-        level.put(getIsPopulated(cubes, layerIdx));
-        level.put(new ByteTag("LightPopulated", (byte) 1)); // can't let vanilla recalculate lighting because 1.14.x drops such chunks :(
+        level.put("TerrainPopulated", getIsPopulated(cubes, layerIdx));
+        level.put("LightPopulated", new ByteTag((byte) 1)); // can't let vanilla recalculate lighting because 1.14.x drops such chunks :(
 
-        level.put(getSections(cubes));
-        level.put(getEntities(cubes));
-        level.put(getTileEntities(cubes));
-        level.put(getTileTicks(cubes));
+        level.put("Sections", getSections(cubes));
+        level.put("Entities", getEntities(cubes));
+        level.put("TileEntities", getTileEntities(cubes));
+        level.put("TileTicks", getTileTicks(cubes));
+
+        return level;
     }
 
-    private Tag<?> getSections(CompoundTag[] cubes) {
-        List<CompoundTag> sections = new ArrayList<>();
+    private Tag getSections(CompoundTag[] cubes) {
+        ListTag sections = new ListTag(TagType.COMPOUND);
         for (int y = 0; y < cubes.length; y++) {
             if (cubes[y] == null) {
                 continue;
             }
-            CompoundMap oldLevel = (CompoundMap) cubes[y].getValue().get("Level").getValue();
+            CompoundTag oldLevel = cubes[y].getCompound("Level");
             if (oldLevel.get("Sections") == null) {
                 continue;
             }
-            CompoundMap newSection = new CompoundMap();
-            @SuppressWarnings("unchecked")
-            List<CompoundTag> oldSections = (List<CompoundTag>) oldLevel.get("Sections").getValue();
-            CompoundMap oldSection = oldSections.get(0).getValue();
+            CompoundTag newSection = new CompoundTag();
+            ListTag oldSections = oldLevel.getList("Sections");
+            CompoundTag oldSection = oldSections.getCompound(0);
             newSection.putAll(oldSection);
-            newSection.put(new ByteTag("Y", (byte) y));
-            sections.add(new CompoundTag("", newSection));
+            newSection.put("Y", new ByteTag((byte) y));
+            sections.add(newSection);
         }
-        return new ListTag<>("Sections", CompoundTag.class, sections);
+        return sections;
     }
 
-    private Tag<?> getEntities(CompoundTag[] cubes) {
-        return new ListTag<>("Entities", CompoundTag.class, new ArrayList<>());
+    private Tag getEntities(CompoundTag[] cubes) {
+        return new ListTag(TagType.COMPOUND);
     }
 
-    private Tag<?> getTileEntities(CompoundTag[] cubes) {
-        return new ListTag<>("TileEntities", CompoundTag.class, new ArrayList<>());
+    private Tag getTileEntities(CompoundTag[] cubes) {
+        return new ListTag(TagType.COMPOUND);
     }
 
-    private Tag<?> getTileTicks(CompoundTag[] cubes) {
-        return new ListTag<>("TileTicks", CompoundTag.class, new ArrayList<>());
+    private Tag getTileTicks(CompoundTag[] cubes) {
+        return new ListTag(TagType.COMPOUND);
     }
 
-    private Tag<?> getIsPopulated(CompoundTag[] cubes, int layerIdx) {
+    private Tag getIsPopulated(CompoundTag[] cubes, int layerIdx) {
         // with default world, only those cubes really matter
         for (int y = 0; y < 8; y++) {
             if (cubes[y] == null) {
-                return new ByteTag("TerrainPopulated", (byte) 0);
+                return new ByteTag((byte) 0);
             }
-            CompoundMap map = (CompoundMap) cubes[y].getValue().get("Level").getValue();
-            if ((Byte) map.get("populated").getValue() == 0) {
-                return new ByteTag("TerrainPopulated", (byte) 0);
+            CompoundTag map = cubes[y].getCompound("Level");
+            if (map.getByte("populated") == 0) {
+                return new ByteTag((byte) 0);
             }
         }
-        return new ByteTag("TerrainPopulated", (byte) 1);
+        return new ByteTag((byte) 1);
     }
 
-    private Tag<?> getHeightMap(Tag<?> opacityIndex, int layerIdx) {
-        byte[] array = (byte[]) opacityIndex.getValue();
+    private Tag getHeightMap(ByteArrayTag opacityIndex, int layerIdx) {
+        byte[] array = opacityIndex.value();
         int[] output = new int[256];
         ByteArrayInputStream buf = new ByteArrayInputStream(array);
         try (DataInputStream in = new DataInputStream(buf)) {
@@ -329,11 +294,7 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
         } catch (IOException e) {
             throw new Error("ByteArrayInputStream doesn't throw IOException");
         }
-        return new IntArrayTag("HeightMap", output);
-    }
-
-    private IntTag renamedInt(Tag<?> old, String newName) {
-        return new IntTag(newName, (Integer) old.getValue());
+        return new IntArrayTag(output);
     }
 
     @Override public ConverterConfig getConfig() {

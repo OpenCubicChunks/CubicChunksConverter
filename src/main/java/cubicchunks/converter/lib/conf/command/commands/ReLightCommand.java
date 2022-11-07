@@ -21,27 +21,25 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.util.edittask;
+package cubicchunks.converter.lib.conf.command.commands;
 
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
+import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.ImmutablePair;
-import cubicchunks.converter.lib.util.Vector3i;
-import net.kyori.nbt.CompoundTag;
+import cubicchunks.converter.lib.util.edittask.ReLightEditTask;
 
-import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.List;
-
-public class RemoveEditTask extends BaseEditTask {
-    public RemoveEditTask(BoundingBox srcBox) {
-        srcBoxes.add(srcBox);
-        dstBoxes.add(srcBox);
-    }
-
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
-        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> cubes = new ArrayList<>(1);
-        cubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
-        return cubes;
+public class ReLightCommand {
+    public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
+        dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("relight")
+            .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
+                .executes(info -> {
+                    info.getSource().addEditTask(new ReLightEditTask(info.getArgument("box", BoundingBox.class)));
+                    return 1;
+                })
+            )
+        );
     }
 }

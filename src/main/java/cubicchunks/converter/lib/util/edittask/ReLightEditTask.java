@@ -23,6 +23,7 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
+import com.google.common.collect.Lists;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
@@ -30,18 +31,21 @@ import cubicchunks.converter.lib.util.Vector3i;
 import net.kyori.nbt.CompoundTag;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.List;
 
-public class RemoveEditTask extends BaseEditTask {
-    public RemoveEditTask(BoundingBox srcBox) {
-        srcBoxes.add(srcBox);
-        dstBoxes.add(srcBox);
+public class ReLightEditTask extends BaseEditTask {
+    public ReLightEditTask(BoundingBox affectedBox) {
+        srcBoxes.add(affectedBox);
+        dstBoxes.add(affectedBox);
     }
 
-    @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
-        List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> cubes = new ArrayList<>(1);
-        cubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
-        return cubes;
+    @Nonnull
+    @Override
+    public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
+        CompoundTag level = cubeTag.getCompound("Level");
+
+        this.markCubeForLightUpdates(level);
+
+        return Lists.newArrayList(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
     }
 }

@@ -23,15 +23,16 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.IntTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.IntTag;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,17 +53,17 @@ public class MoveEditTask extends TranslationEditTask {
             outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, null)));
             return outCubes;
         }
-        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        CompoundTag level = cubeTag.getCompound("Level");
 
         Vector3i dstPos = cubePos.add(offset);
-        level.put(new IntTag("x", dstPos.getX()));
-        level.put(new IntTag("y", dstPos.getY()));
-        level.put(new IntTag("z", dstPos.getZ()));
+        level.put("x", new IntTag(dstPos.getX()));
+        level.put("y", new IntTag(dstPos.getY()));
+        level.put("z", new IntTag(dstPos.getZ()));
 
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
         this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
         this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, false);

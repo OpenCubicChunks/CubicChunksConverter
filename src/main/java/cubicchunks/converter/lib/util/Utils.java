@@ -23,18 +23,10 @@
  */
 package cubicchunks.converter.lib.util;
 
-import com.flowpowered.nbt.ByteArrayTag;
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.IntArrayTag;
-import com.flowpowered.nbt.IntTag;
-import com.flowpowered.nbt.ListTag;
-import com.flowpowered.nbt.stream.NBTInputStream;
-import com.flowpowered.nbt.stream.NBTOutputStream;
 import cubicchunks.regionlib.impl.EntryLocation3D;
 import cubicchunks.regionlib.util.CheckedConsumer;
 import cubicchunks.regionlib.util.CheckedFunction;
+import net.kyori.nbt.*;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -170,7 +162,8 @@ public class Utils {
     private static void copyEverythingExceptInternal(Path file, Path srcDir, Path dstDir, Predicate<Path> excluded, Consumer<Path> onCopy, boolean canCopyAttributes) throws IOException{
         try (Stream<Path> stream = Files.list(file)) {
             stream.forEach(f -> {
-                if (!excluded.test(f)) {
+                //`__MACOSX` is a metadata folder added by macs to zip archives https://superuser.com/questions/104500/what-is-macosx-folder
+                if (!excluded.test(f) && !f.endsWith("__MACOSX")) {
                     try {
                         copyFile(f, srcDir, dstDir, canCopyAttributes);
                         if (Files.isRegularFile(f)) {
@@ -222,13 +215,12 @@ public class Utils {
             throw new UnsupportedOperationException();
         }
 
-        return (CompoundTag) new NBTInputStream(data, false).readTag();
+        return TagIO.readInputStream(TagTypeMaps.MINECRAFT, data);
     }
 
     public static CompoundTag readCompressedCC(InputStream is) throws IOException {
-        try (NBTInputStream nbtInputStream = new NBTInputStream(new BufferedInputStream(new GZIPInputStream(is)), false)) {
-            return (CompoundTag) nbtInputStream.readTag();
-        }
+        BufferedInputStream data = new BufferedInputStream(new GZIPInputStream(is));
+        return TagIO.readInputStream(TagTypeMaps.MINECRAFT, data);
     }
 
     public static ByteBuffer writeCompressed(CompoundTag tag, boolean prefixFormat) throws IOException {
@@ -236,9 +228,9 @@ public class Utils {
         if (prefixFormat) {
             bytes.write(1); // mark as GZIP
         }
-        try (NBTOutputStream nbtOut = new NBTOutputStream(new BufferedOutputStream(new GZIPOutputStream(bytes)), false)) {
-            nbtOut.writeTag(tag);
-        }
+        BufferedOutputStream output = new BufferedOutputStream(new GZIPOutputStream(bytes));
+        TagIO.writeOutputStream(TagTypeMaps.MINECRAFT, tag, output);
+        output.flush();
         return ByteBuffer.wrap(bytes.toByteArray());
     }
 
@@ -252,49 +244,48 @@ public class Utils {
     }
 
     public static CompoundTag emptyCube(int x, int y, int z) {
-        CompoundMap root = new CompoundMap();
+        CompoundTag root = new CompoundTag();
         {
-            CompoundMap level = new CompoundMap();
+            CompoundTag level = new CompoundTag();
 
             {
-                level.put(new ByteTag("v", (byte) 1));
-                level.put(new IntTag("x", x));
-                level.put(new IntTag("y", y));
-                level.put(new IntTag("z", z));
+                level.put("v", new ByteTag((byte) 1));
+                level.put("x", new IntTag(x));
+                level.put("y", new IntTag(y));
+                level.put("z", new IntTag(z));
 
-                level.put(new ByteTag("populated", true));
-                level.put(new ByteTag("fullyPopulated", true));
-                level.put(new ByteTag("isSurfaceTracked", true)); // it's empty, no need to re-track
+                level.put("populated", new ByteTag((byte) 1));
+                level.put("fullyPopulated", new ByteTag((byte) 1));
+                level.put("isSurfaceTracked", new ByteTag((byte) 1)); // it's empty, no need to re-track
 
+                // no need for Sections, CC has isEmpty check for that
 
-                level.put(new ListTag<>("Sections", CompoundTag.class, Collections.singletonList(createEmptySectionTag())));
+                level.put("initLightDone", new ByteTag((byte) 0));
 
-                level.put(new ByteTag("initLightDone", false));
+                level.put("Entities", new ListTag(TagType.COMPOUND));
+                level.put("TileEntities", new ListTag(TagType.COMPOUND));
 
-                level.put(new ListTag<>("Entities", CompoundTag.class, emptyList()));
-                level.put(new ListTag<>("TileEntities", CompoundTag.class, emptyList()));
-
-                level.put(makeEmptyLightingInfo());
+                level.put("LightingInfo", makeEmptyLightingInfo());
             }
-            root.put(new CompoundTag("Level", level));
+            root.put("Level", level);
         }
-        return new CompoundTag("", root);
+        return root;
     }
 
     public static CompoundTag createEmptySectionTag() {
-        CompoundMap sectionData = new CompoundMap();
-        sectionData.put("Blocks", new ByteArrayTag("Blocks", new byte[4096]));
-        sectionData.put("Data", new ByteArrayTag("Data", new byte[2048]));
-        sectionData.put("BlockLight", new ByteArrayTag("BlockLight", new byte[2048]));
-        sectionData.put("SkyLight", new ByteArrayTag("SkyLight", new byte[2048]));
+        CompoundTag sectionData = new CompoundTag();
+        sectionData.put("Blocks", new ByteArrayTag(new byte[4096]));
+        sectionData.put("Data", new ByteArrayTag(new byte[2048]));
+        sectionData.put("BlockLight", new ByteArrayTag(new byte[2048]));
+        sectionData.put("SkyLight", new ByteArrayTag(new byte[2048]));
 
-        return new CompoundTag("", sectionData);
+        return sectionData;
     }
     private static CompoundTag makeEmptyLightingInfo() {
-        IntArrayTag heightmap = new IntArrayTag("LastHeightMap", new int[256]);
-        CompoundMap lightingInfoMap = new CompoundMap();
-        lightingInfoMap.put(heightmap);
-        return new CompoundTag("LightingInfo", lightingInfoMap);
+        IntArrayTag heightmap = new IntArrayTag(new int[256]);
+        CompoundTag lightingInfoMap = new CompoundTag();
+        lightingInfoMap.put("LastHeightMap", heightmap);
+        return lightingInfoMap;
     }
 
     /**

@@ -23,11 +23,11 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.ListTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.*;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.ListTag;
+import net.kyori.nbt.TagType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -133,28 +133,30 @@ public class SchematicTask extends BaseEditTask {
 
     @Nonnull @Override
     public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config,
-            CompoundTag cubeTag, long inCubePriority) {
+                                                                                     CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        CompoundTag level = cubeTag.getCompound("Level");
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
-        CompoundMap sectionDetails;
+        CompoundTag sectionDetails;
         try {
-            if (!level.containsKey("Sections")) {
-                level.put(new ListTag<>("Sections", CompoundTag.class, Collections.singletonList(Utils.createEmptySectionTag())));
+            if (!level.contains("Sections")) {
+                ListTag tags = new ListTag(TagType.COMPOUND);
+                tags.add(Utils.createEmptySectionTag());
+                level.put("Sections", tags);
             }
-            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections")).get(0)); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
         } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
             LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
             return outCubes;
         }
 
-        byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
-        byte[] meta = (byte[]) sectionDetails.get("Data").getValue();
+        byte[] blocks = sectionDetails.getByteArray("Blocks");
+        byte[] meta = sectionDetails.getByteArray("Data");
 
         int baseX = cubePos.getX() * 16;
         int baseY = cubePos.getY() * 16;

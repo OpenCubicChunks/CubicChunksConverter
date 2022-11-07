@@ -23,16 +23,20 @@
  */
 package cubicchunks.converter.lib.convert.cc2ccrelocating;
 
-import com.flowpowered.nbt.*;
 import cubicchunks.converter.lib.Dimension;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.conf.command.EditTaskCommands;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
-import cubicchunks.converter.lib.util.*;
+import cubicchunks.converter.lib.util.BoundingBox;
+import cubicchunks.converter.lib.util.ImmutablePair;
+import cubicchunks.converter.lib.util.Vector2i;
+import cubicchunks.converter.lib.util.Vector3i;
 import cubicchunks.converter.lib.util.edittask.EditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.TagType;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -162,11 +166,16 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         Map<Vector2i, Map<Integer, ImmutablePair<Long, CompoundTag>>> tagMap = new HashMap<>();
 
         for(Map.Entry<Integer, ImmutablePair<Long, CompoundTag>> entry : cubeDataOld.entrySet()) {
-            CompoundMap level = (CompoundMap)entry.getValue().getValue().getValue().get("Level").getValue();
+            CompoundTag root = entry.getValue().getValue();
+            if(root.contains("Level", TagType.COMPOUND));
+            CompoundTag level = root.getCompound("Level");
 
-            int cubeX = (Integer) level.get("x").getValue();
-            int cubeY = (Integer) level.get("y").getValue();
-            int cubeZ = (Integer) level.get("z").getValue();
+            if(!level.containsAll(TagType.INT, "x", "y", "z"))
+                continue;
+
+            int cubeX = level.getInt("x");
+            int cubeY = level.getInt("y");
+            int cubeZ = level.getInt("z");
 
             for (EditTask task : this.relocateTasks) {
                 if (!task.handlesDimension(dimension.getDirectory())) {
@@ -187,7 +196,7 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
                 if(!cubeIsSrc)
                     continue;
 
-                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), config, entry.getValue().getValue(), entry.getKey());
+                List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outputCubes = task.actOnCube(new Vector3i(cubeX, cubeY, cubeZ), config, root, entry.getKey());
 
                 outputCubes.forEach(positionTagPriority -> {
                     Vector3i cubePos = positionTagPriority.getKey();

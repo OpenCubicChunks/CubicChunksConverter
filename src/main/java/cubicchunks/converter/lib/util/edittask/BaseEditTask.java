@@ -23,11 +23,11 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.IntArrayTag;
 import cubicchunks.converter.lib.convert.cc2ccrelocating.CC2CCRelocatingDataConverter;
 import cubicchunks.converter.lib.util.BoundingBox;
+import net.kyori.nbt.ByteTag;
+import net.kyori.nbt.CompoundTag;
+import net.kyori.nbt.TagType;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public abstract class BaseEditTask implements EditTask {
     protected final List<BoundingBox> srcBoxes = new ArrayList<>();
     protected final List<BoundingBox> dstBoxes = new ArrayList<>();
 
-    protected static final Logger LOGGER = Logger.getLogger(CC2CCRelocatingDataConverter.class.getSimpleName());
+    protected static final Logger LOGGER = Logger.getLogger(BaseEditTask.class.getSimpleName());
 
     @Nonnull @Override public List<BoundingBox> getSrcBoxes() {
         return srcBoxes;
@@ -49,17 +49,28 @@ public abstract class BaseEditTask implements EditTask {
         return dstBoxes;
     }
 
-    protected void markCubeForLightUpdates(CompoundMap cubeLevelMap) {
-        cubeLevelMap.put(new ByteTag("isSurfaceTracked", (byte) 0));
-        cubeLevelMap.put(new ByteTag("initLightDone", (byte) 1));
+    protected void markCubeForLightUpdates(CompoundTag cubeLevelMap) {
+        this.markCubeForReSurfaceTrack(cubeLevelMap);
 
-        CompoundMap lightingInfo = (CompoundMap) cubeLevelMap.get("LightingInfo").getValue();
-        Arrays.fill(((IntArrayTag) lightingInfo.get("LastHeightMap")).getValue(), Integer.MAX_VALUE);
-        lightingInfo.put(new ByteTag("EdgeNeedSkyLightUpdate", (byte) 1));
+        if(!cubeLevelMap.contains("LightingInfo", TagType.COMPOUND))
+            return;
+
+        CompoundTag lightingInfo = cubeLevelMap.getCompound("LightingInfo");
+        Arrays.fill((lightingInfo.getIntArray("LastHeightMap")), Integer.MAX_VALUE);
+        lightingInfo.put("EdgeNeedSkyLightUpdate", new ByteTag((byte) 1));
     }
 
-    public void markCubePopulated(CompoundMap cubeLevelMap) {
-        cubeLevelMap.put(new ByteTag("populated", (byte) 1));
-        cubeLevelMap.put(new ByteTag("fullyPopulated", (byte) 1));
+    protected void markCubeForReSurfaceTrack(CompoundTag cubeLevelMap) {
+        cubeLevelMap.put("isSurfaceTracked", new ByteTag((byte) 0));
+        cubeLevelMap.put("initLightDone", new ByteTag((byte) 1));
+    }
+
+    public void markCubePopulated(CompoundTag cubeLevelMap, boolean populated) {
+        byte value = 0;
+        if (populated) {
+            value = 1;
+        }
+        cubeLevelMap.put("populated", new ByteTag(value));
+        cubeLevelMap.put("fullyPopulated", new ByteTag(value));
     }
 }

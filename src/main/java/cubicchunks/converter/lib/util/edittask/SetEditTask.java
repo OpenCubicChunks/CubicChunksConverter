@@ -23,12 +23,11 @@
  */
 package cubicchunks.converter.lib.util.edittask;
 
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
 import cubicchunks.converter.lib.util.BoundingBox;
 import cubicchunks.converter.lib.util.ImmutablePair;
 import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -49,21 +48,16 @@ public class SetEditTask extends BaseEditTask {
     @Nonnull @Override public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
         List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> outCubes = new ArrayList<>();
 
-        CompoundMap level = (CompoundMap) cubeTag.getValue().get("Level").getValue();
+        CompoundTag level = cubeTag.getCompound("Level");
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
-        CompoundMap sectionDetails;
-        try {
-            sectionDetails = ((CompoundTag)((List<?>) (level).get("Sections").getValue()).get(0)).getValue(); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
-        } catch(NullPointerException | ArrayIndexOutOfBoundsException e) {
-            LOGGER.warning("Malformed cube at position (" + cubePos.getX() + ", " + cubePos.getY() + ", " + cubePos.getZ() + "), skipping!");
-            return outCubes;
-        }
-        Arrays.fill((byte[]) sectionDetails.get("Blocks").getValue(), blockID);
-        Arrays.fill((byte[]) sectionDetails.get("Data").getValue(), (byte) (blockMeta | blockMeta << 4));
+        CompoundTag sectionDetails = level.getList("Sections").getCompound(0); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
+
+        Arrays.fill(sectionDetails.getByteArray("Blocks"), blockID);
+        Arrays.fill(sectionDetails.getByteArray("Data"), (byte) (blockMeta | blockMeta << 4));
 
         outCubes.add(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
         return outCubes;
