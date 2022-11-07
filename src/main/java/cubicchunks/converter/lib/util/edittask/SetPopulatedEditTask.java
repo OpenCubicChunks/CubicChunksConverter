@@ -21,25 +21,35 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
-package cubicchunks.converter.lib.conf.command.commands;
+package cubicchunks.converter.lib.util.edittask;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.google.common.collect.Lists;
 import cubicchunks.converter.lib.conf.command.EditTaskContext;
-import cubicchunks.converter.lib.conf.command.arguments.BoundingBoxArgument;
 import cubicchunks.converter.lib.util.BoundingBox;
-import cubicchunks.converter.lib.util.edittask.ReTrackEditTask;
+import cubicchunks.converter.lib.util.ImmutablePair;
+import cubicchunks.converter.lib.util.Vector3i;
+import net.kyori.nbt.CompoundTag;
 
-public class ReTrackCommand {
-    public static void register(CommandDispatcher<EditTaskContext> dispatcher) {
-        dispatcher.register(LiteralArgumentBuilder.<EditTaskContext>literal("relight")
-                .then(RequiredArgumentBuilder.<EditTaskContext, BoundingBox>argument("box", new BoundingBoxArgument())
-                        .executes(info -> {
-                            info.getSource().addEditTask(new ReTrackEditTask(info.getArgument("box", BoundingBox.class)));
-                            return 1;
-                        })
-                )
-        );
+import javax.annotation.Nonnull;
+import java.util.List;
+
+public class SetPopulatedEditTask extends BaseEditTask {
+    private final boolean populated;
+
+    public SetPopulatedEditTask(BoundingBox affectedBox, boolean populated) {
+        srcBoxes.add(affectedBox);
+        dstBoxes.add(affectedBox);
+
+        this.populated = populated;
+    }
+
+    @Nonnull
+    @Override
+    public List<ImmutablePair<Vector3i, ImmutablePair<Long, CompoundTag>>> actOnCube(Vector3i cubePos, EditTaskContext.EditTaskConfig config, CompoundTag cubeTag, long inCubePriority) {
+        CompoundTag level = cubeTag.getCompound("Level");
+
+        this.markCubePopulated(level, this.populated);
+
+        return Lists.newArrayList(new ImmutablePair<>(cubePos, new ImmutablePair<>(inCubePriority+1, cubeTag)));
     }
 }

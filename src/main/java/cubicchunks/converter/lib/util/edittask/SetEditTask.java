@@ -52,7 +52,7 @@ public class SetEditTask extends BaseEditTask {
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
         CompoundTag sectionDetails = level.getList("Sections").getCompound(0); //POSSIBLE ARRAY OUT OF BOUNDS EXCEPTION ON A MALFORMED CUBE
 

@@ -60,7 +60,7 @@ public class CopyEditTask extends TranslationEditTask {
             if(config.shouldRelightSrc()) {
                 this.markCubeForLightUpdates(srcLevel);
             }
-            this.markCubePopulated(srcLevel);
+            this.markCubePopulated(srcLevel, true);
 
             outCubes.add(new ImmutablePair<>(new Vector3i(cubeX, cubeY, cubeZ), new ImmutablePair<>(inCubePriority+1, copy)));
         }
@@ -78,7 +78,7 @@ public class CopyEditTask extends TranslationEditTask {
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
         this.inplaceMoveTileEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4);
         this.inplaceMoveEntitiesBy(level, offset.getX() << 4, offset.getY() << 4, offset.getZ() << 4, true);

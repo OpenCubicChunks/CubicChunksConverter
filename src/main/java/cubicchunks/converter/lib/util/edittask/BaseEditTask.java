@@ -65,8 +65,12 @@ public abstract class BaseEditTask implements EditTask {
         cubeLevelMap.put("initLightDone", new ByteTag((byte) 1));
     }
 
-    public void markCubePopulated(CompoundTag cubeLevelMap) {
-        cubeLevelMap.put("populated", new ByteTag((byte) 1));
-        cubeLevelMap.put("fullyPopulated", new ByteTag((byte) 1));
+    public void markCubePopulated(CompoundTag cubeLevelMap, boolean populated) {
+        byte value = 0;
+        if (populated) {
+            value = 1;
+        }
+        cubeLevelMap.put("populated", new ByteTag(value));
+        cubeLevelMap.put("fullyPopulated", new ByteTag(value));
     }
 }

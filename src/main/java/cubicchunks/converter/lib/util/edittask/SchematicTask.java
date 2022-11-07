@@ -140,7 +140,7 @@ public class SchematicTask extends BaseEditTask {
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
         CompoundTag sectionDetails;
         try {

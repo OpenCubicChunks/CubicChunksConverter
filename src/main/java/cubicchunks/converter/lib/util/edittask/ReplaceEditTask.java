@@ -57,7 +57,7 @@ public class ReplaceEditTask extends BaseEditTask {
         if(config.shouldRelightDst()) {
             this.markCubeForLightUpdates(level);
         }
-        this.markCubePopulated(level);
+        this.markCubePopulated(level, true);
 
         CompoundTag sectionDetails = level.getList("Sections", TagType.COMPOUND).getCompound(0);
 
