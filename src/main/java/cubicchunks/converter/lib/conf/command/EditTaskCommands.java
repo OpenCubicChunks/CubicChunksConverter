@@ -46,6 +46,7 @@ public class EditTaskCommands {
         SetCommand.register(dispatcher);
         ReplaceCommand.register(dispatcher);
         SchematicCommand.register(dispatcher);
+        ReLightCommand.register(dispatcher);
         ReTrackCommand.register(dispatcher);
         ConfigCommand.register(dispatcher);
     }
