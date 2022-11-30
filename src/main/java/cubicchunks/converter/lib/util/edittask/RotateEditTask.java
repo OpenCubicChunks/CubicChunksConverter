@@ -63,7 +63,7 @@ public class RotateEditTask extends TranslationEditTask {
         newZ = newX;
         newX = temp;
 
-        newX*=-1;
+        newZ*=-1;
 
         //Add origin to points
         newX+=this.origin.getX();
@@ -86,11 +86,26 @@ public class RotateEditTask extends TranslationEditTask {
         return new EntryLocation2D(temp.getX(), temp.getZ());
     }
 
-    private byte rotateMetadata(MaterialData blockData){
+    private byte rotateMetadata(MaterialData blockData, String blockName){
         int degree = degrees;
         byte result=blockData.getData();
+        //TODO item frames do not work
         while ((degree/=90) > 0){
-            result= (byte) ((((int) result) + 4) % 16);
+            if (blockName.equals("SIGN_POST"))
+                result= (byte) ((((int) result) - 4) % 16); //TODO this doesn't work.
+            else if (blockName.equals("WALL_SIGN"))
+                result = (byte) (Math.abs(((((int) result) - 3) + 2) % 4) + 3); //TODO this doesn't work.
+            else{
+                if (result == 5) //TODO bad code
+                    result=2;
+                else if (result == 2)
+                    result = 4;
+                else if (result == 4)
+                    result = 3;
+                else if (result == 3)
+                    result = 5;
+            }
+//                result = (byte) (Math.abs(((( (int) result) - 2) - 2) % 4) + 2);
         }
         return result;
     }
@@ -102,7 +117,7 @@ public class RotateEditTask extends TranslationEditTask {
         Material block = Material.getMaterial(blockId);
         MaterialData blockData = block.getNewData((byte) metaData);
         if (blockData instanceof Directional){
-            metaData = this.rotateMetadata(blockData);
+            metaData = this.rotateMetadata(blockData, block.name());
         }
         return metaData;
     }
@@ -137,8 +152,8 @@ public class RotateEditTask extends TranslationEditTask {
         // Rotating Tile Entities
         for (int i=0; i< ((List<?>) (level).get("TileEntities").getValue()).size(); i++){
             CompoundMap tileEntity = ((CompoundTag) ((List<?>) (level).get("TileEntities").getValue()).get(i)).getValue();
-            int zVal = ((Integer) tileEntity.get("x").getValue());
-            int xVal = ((((Integer) tileEntity.get("z").getValue())-8)*-1)+7;
+            int xVal = ((Integer) tileEntity.get("z").getValue());
+            int zVal = ((((Integer) tileEntity.get("x").getValue())-8)*-1)+7;
             tileEntity.put(new IntTag("x", xVal));
             tileEntity.put(new IntTag("z", zVal));
         }
@@ -147,11 +162,21 @@ public class RotateEditTask extends TranslationEditTask {
         for (int i=0; i< ((List<?>) (level).get("Entities").getValue()).size(); i++){
             CompoundMap entity = ((CompoundTag) ((List<?>) (level).get("Entities").getValue()).get(i)).getValue();
             List<DoubleTag> pos = (List<DoubleTag>) entity.get("Pos").getValue();
-            double zVal = (pos.get(0).getValue());
-            double xVal = (((pos.get(2).getValue())-8)*-1)+7;
+            double xVal = (pos.get(2).getValue());
+            double zVal = (((pos.get(0).getValue())-8)*-1)+7;
             double yVal = (pos.get(1).getValue());
             List<DoubleTag> newPos = Arrays.asList(new DoubleTag("", xVal), new DoubleTag("", yVal), new DoubleTag("", zVal));
             entity.put(new ListTag<>("Pos", DoubleTag.class, newPos));
+
+            //Handle Item Frames
+            String id = ((String) entity.get("id").getValue());
+            if (id.equals("minecraft:item_frame")) {
+                entity.put(new IntTag("TileX", (int) Math.floor(xVal)));
+                entity.put(new IntTag("TileZ", (int) Math.floor(zVal)));
+
+                int facing = (int) ((Byte) entity.get("Facing").getValue());
+                entity.put(new ByteTag("Facing", ((byte) ((facing+2) %4)) ));
+            }
         }
 
         final byte[] blocks = (byte[]) sectionDetails.get("Blocks").getValue();
@@ -167,8 +192,8 @@ public class RotateEditTask extends TranslationEditTask {
             for (int y = 0; y < blocks.length / squareLen; y++) {
                 for (int r = 0; r < sideLen; r++) {
                     for (int c = 0; c < sideLen; c++) {
-                        int newIndex = ((c*sideLen)+sideLen-1-r)+(y*squareLen);   //Clockwise
-                        //int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen); //Counter Clockwise
+                        //int newIndex = ((c*sideLen)+sideLen-1-r)+(y*squareLen);   //Counter Clockwise
+                        int newIndex = (((sideLen - 1) - c)*sideLen) + r+ (y * squareLen); //Clockwise
                         int oldIndex = ((r * sideLen) + c) + (y * squareLen);
                         newBlocks[newIndex] = blocks[oldIndex];
                         int metaData = rotateMetadata(newBlocks[newIndex], EditTask.nibbleGetAtIndex(meta, oldIndex));
