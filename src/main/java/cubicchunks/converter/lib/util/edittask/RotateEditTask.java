@@ -172,7 +172,7 @@ public class RotateEditTask extends TranslationEditTask {
             String id = ((String) entity.get("id").getValue());
             if (id.equals("minecraft:item_frame")) {
                 entity.put(new IntTag("TileX", (int) Math.floor(xVal)));
-                entity.put(new IntTag("TileZ", (int) Math.floor(zVal)));
+                entity.put(new IntTag("TileZ", (int) Math.ceil(zVal)));
 
                 int facing = (int) ((Byte) entity.get("Facing").getValue());
                 entity.put(new ByteTag("Facing", ((byte) ((facing+2) %4)) ));
