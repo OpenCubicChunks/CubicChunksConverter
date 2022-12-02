@@ -26,13 +26,7 @@ package cubicchunks.converter.lib.convert.cc2anvil;
 import static cubicchunks.converter.lib.util.Utils.readCompressedCC;
 import static cubicchunks.converter.lib.util.Utils.writeCompressed;
 
-import com.flowpowered.nbt.ByteTag;
-import com.flowpowered.nbt.CompoundMap;
-import com.flowpowered.nbt.CompoundTag;
-import com.flowpowered.nbt.IntArrayTag;
-import com.flowpowered.nbt.IntTag;
-import com.flowpowered.nbt.ListTag;
-import com.flowpowered.nbt.Tag;
+import com.flowpowered.nbt.*;
 import cubicchunks.converter.lib.conf.ConverterConfig;
 import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.AnvilChunkData;
@@ -256,10 +250,11 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
         level.put(getIsPopulated(cubes, layerIdx));
         level.put(new ByteTag("LightPopulated", (byte) 1)); // can't let vanilla recalculate lighting because 1.14.x drops such chunks :(
 
+        int yOffset = -layerIdx * 256;
         level.put(getSections(cubes));
-        level.put(getEntities(cubes));
-        level.put(getTileEntities(cubes));
-        level.put(getTileTicks(cubes));
+        level.put(getEntities(cubes, yOffset));
+        level.put(getTileEntities(cubes, yOffset));
+        level.put(getTileTicks(cubes, yOffset));
     }
 
     private Tag<?> getSections(CompoundTag[] cubes) {
@@ -283,16 +278,84 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
         return new ListTag<>("Sections", CompoundTag.class, sections);
     }
 
-    private Tag<?> getEntities(CompoundTag[] cubes) {
-        return new ListTag<>("Entities", CompoundTag.class, new ArrayList<>());
+    private Tag<?> getEntities(CompoundTag[] cubes, int yOffset) {
+
+        ArrayList<CompoundTag> entities = new ArrayList<>();
+
+        for(CompoundTag cube : cubes) {
+            if (cube == null) {
+                continue;
+            }
+            CompoundTag level = (CompoundTag) cube.getValue().get("Level");
+            if (level == null) {
+                continue;
+            }
+            @SuppressWarnings("unchecked") ListTag<CompoundTag> cubeEntities = (ListTag<CompoundTag>) level.getValue().get("Entities");
+            if (cubeEntities == null) {
+                continue;
+            }
+            for (CompoundTag entityTag : cubeEntities.getValue()) {
+                @SuppressWarnings("unchecked") ListTag<DoubleTag> pos = (ListTag<DoubleTag>) entityTag.getValue().get("Pos");
+                DoubleTag xTag = pos.getValue().get(0);
+                DoubleTag yTag = pos.getValue().get(1);
+                DoubleTag newY = new DoubleTag(yTag.getName(), yTag.getValue() + yOffset);
+                DoubleTag zTag = pos.getValue().get(2);
+
+                ListTag<DoubleTag> newPos = new ListTag<>("Pos", DoubleTag.class, Arrays.asList(xTag, newY, zTag));
+                entityTag.getValue().put("Pos", newPos);
+                entities.add(entityTag);
+            }
+        }
+        return new ListTag<>("Entities", CompoundTag.class, entities);
     }
 
-    private Tag<?> getTileEntities(CompoundTag[] cubes) {
-        return new ListTag<>("TileEntities", CompoundTag.class, new ArrayList<>());
+    private Tag<?> getTileEntities(CompoundTag[] cubes, int yOffset) {
+
+        ArrayList<CompoundTag> tiles = new ArrayList<>();
+
+        for(CompoundTag cube : cubes) {
+            if (cube == null) {
+                continue;
+            }
+            CompoundTag level = (CompoundTag) cube.getValue().get("Level");
+            if (level == null) {
+                continue;
+            }
+            @SuppressWarnings("unchecked") ListTag<CompoundTag> cubeTiles = (ListTag<CompoundTag>) level.getValue().get("TileEntities");
+            if (cubeTiles == null) {
+                continue;
+            }
+            for (CompoundTag teTag : cubeTiles.getValue()) {
+                IntTag y = (IntTag) teTag.getValue().get("y");
+                teTag.getValue().put("y", new IntTag(y.getName(), y.getValue() + yOffset));
+                tiles.add(teTag);
+            }
+        }
+        return new ListTag<>("TileEntities", CompoundTag.class, tiles);
     }
 
-    private Tag<?> getTileTicks(CompoundTag[] cubes) {
-        return new ListTag<>("TileTicks", CompoundTag.class, new ArrayList<>());
+    private Tag<?> getTileTicks(CompoundTag[] cubes, int yOffset) {
+        ArrayList<CompoundTag> tiles = new ArrayList<>();
+
+        for(CompoundTag cube : cubes) {
+            if (cube == null) {
+                continue;
+            }
+            CompoundTag level = (CompoundTag) cube.getValue().get("Level");
+            if (level == null) {
+                continue;
+            }
+            @SuppressWarnings("unchecked") ListTag<CompoundTag> cubeTicks = (ListTag<CompoundTag>) level.getValue().get("TileTicks");
+            if (cubeTicks == null) {
+                continue;
+            }
+            for (CompoundTag tick : cubeTicks.getValue()) {
+                IntTag y = (IntTag) tick.getValue().get("y");
+                tick.getValue().put("y", new IntTag(y.getName(), y.getValue() + yOffset));
+                tiles.add(tick);
+            }
+        }
+        return new ListTag<>("TileTicks", CompoundTag.class, tiles);
     }
 
     private Tag<?> getIsPopulated(CompoundTag[] cubes, int layerIdx) {
