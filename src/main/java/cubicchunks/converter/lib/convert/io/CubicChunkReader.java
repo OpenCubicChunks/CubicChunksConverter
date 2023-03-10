@@ -268,7 +268,7 @@ public class CubicChunkReader extends BaseMinecraftReader<CubicChunksColumnData,
                     ByteBuffer cube;
                     try {
                         EntryLocation3D location = new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ());
-                        cube = save.load(location, true).orElse(Utils.createAirCubeBuffer(location));
+                        cube = save.load(location, true).orElseGet(() -> Utils.createAirCubeBuffer(location));
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (!errorHandler.test(e)) {

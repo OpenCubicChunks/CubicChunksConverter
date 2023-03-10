@@ -247,7 +247,7 @@ public class PriorityCubicChunkReader extends BaseMinecraftReader<PriorityCubicC
                         }
                         int y = yCursor.value;
                         EntryLocation3D location = new EntryLocation3D(pos2d.getEntryX(), y, pos2d.getEntryZ());
-                        ByteBuffer cube = save.load(location, true).orElse(Utils.createAirCubeBuffer(location));
+                        ByteBuffer cube = save.load(location, true).orElseGet(() -> Utils.createAirCubeBuffer(location));
                         cubes.put(y, new ImmutablePair<>(0L, cube));
                     }
                     PriorityCubicChunksColumnData data = new PriorityCubicChunksColumnData(dim, pos2d, column, cubes, true);
