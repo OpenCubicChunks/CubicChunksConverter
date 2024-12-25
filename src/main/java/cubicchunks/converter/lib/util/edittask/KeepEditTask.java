@@ -33,8 +33,23 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 public class KeepEditTask extends BaseEditTask {
+    private final boolean isColumn;
+
     public KeepEditTask(BoundingBox srcBox) {
+        this(srcBox, false);
+    }
+
+    private KeepEditTask(BoundingBox srcBox, boolean column) {
         srcBoxes.add(srcBox);
+        isColumn = column;
+    }
+
+    public static KeepEditTask keepColumn(BoundingBox srcBox) {
+        return new KeepEditTask(srcBox, true);
+    }
+
+    public boolean isColumn() {
+        return isColumn;
     }
 
     @Override

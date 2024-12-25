@@ -32,6 +32,7 @@ import cubicchunks.converter.lib.convert.ChunkDataConverter;
 import cubicchunks.converter.lib.convert.data.PriorityCubicChunksColumnData;
 import cubicchunks.converter.lib.util.*;
 import cubicchunks.converter.lib.util.edittask.EditTask;
+import cubicchunks.converter.lib.util.edittask.KeepEditTask;
 import cubicchunks.regionlib.impl.EntryLocation2D;
 
 import java.io.ByteArrayInputStream;
@@ -91,15 +92,32 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
         //Split out cubes that are only in a keep tasked bounding box
         Map<Integer, ImmutablePair<Long, ByteBuffer>> noReadCubes = new HashMap<>();
         EntryLocation2D inPosition = input.getPosition();
+        // TODO: handle it better?
+        Map<Integer, Integer> wholeColumns = new HashMap<>(4);
+        for(Integer y : inCubes.keySet()) {
+            int v = wholeColumns.getOrDefault(y >> 4, 0);
+            v |= 1 << (y & 0xF);
+            wholeColumns.put(y >> 4, v);
+        }
         for(Map.Entry<Integer, ImmutablePair<Long, ByteBuffer>> entry : inCubes.entrySet()) {
             boolean anyBoxNeedsData = false;
             boolean intersectsSrcBox = false;
 
+            Integer cubeY = entry.getKey();
             for(EditTask task : relocateTasks) {
                 List<BoundingBox> srcBoxes = task.getSrcBoxes();
                 for (BoundingBox srcBox : srcBoxes) {
-                    if(srcBox.intersects(inPosition.getEntryX(), entry.getKey(), inPosition.getEntryZ())) {
-                        intersectsSrcBox = true;
+                    if(srcBox.intersects(inPosition.getEntryX(), cubeY, inPosition.getEntryZ())) {
+                        if (task instanceof KeepEditTask && ((KeepEditTask) task).isColumn()) {
+                            int columnY = cubeY >> 4;
+                            int existFlags = wholeColumns.getOrDefault(columnY, 0);
+                            // for columns above vanilla keep it all
+                            // for columns below vanilla only full (so just keep all full)
+                            // for columns in vanilla range keep only those that are filled at least halfway to the top of the column
+                            intersectsSrcBox = columnY > 0 || existFlags == 0xFFFF || (columnY == 0 && (existFlags & 0xFF) == 0xFF);
+                        } else {
+                            intersectsSrcBox = true;
+                        }
                         if(task.readsCubeData()) {
                             anyBoxNeedsData = true;
                             break;
@@ -109,11 +127,11 @@ public class CC2CCRelocatingDataConverter implements ChunkDataConverter<Priority
             }
             if(intersectsSrcBox) {
                 if (anyBoxNeedsData)
-                    cubes.put(entry.getKey(), entry.getValue());
+                    cubes.put(cubeY, entry.getValue());
                 else
-                    noReadCubes.put(entry.getKey(), entry.getValue());
+                    noReadCubes.put(cubeY, entry.getValue());
             } else
-                noReadCubes.put(entry.getKey(), entry.getValue());
+                noReadCubes.put(cubeY, entry.getValue());
         }
 
         Map<Integer, ImmutablePair<Long, CompoundTag>> inCubeData = new HashMap<>();

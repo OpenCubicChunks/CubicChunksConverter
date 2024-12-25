@@ -44,6 +44,7 @@ public class EditTaskCommands {
         MoveCommand.register(dispatcher);
         RemoveCommand.register(dispatcher);
         KeepCommand.register(dispatcher);
+        KeepColumnCommand.register(dispatcher);
         SetCommand.register(dispatcher);
         ReplaceCommand.register(dispatcher);
         SchematicCommand.register(dispatcher);
