@@ -46,6 +46,25 @@ import javax.annotation.Nullable;
 
 public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColumnData, MultilayerAnvilChunkData> {
 
+    private static final boolean FORCE_RECOMPUTE_HEIGHTMAP = "true".equalsIgnoreCase(System.getProperty("cc2anvil.recomputeHeightmap", "true"));
+    // generated with the following code:
+    /*
+        itSet bs = new BitSet(256);
+        for (int i = 0; i < 256; i++) {
+            Block block = Block.REGISTRY.getObjectById(i);
+            if (block == null) continue;
+            if (block.getLightOpacity(block.getDefaultState()) != 0) {
+                bs.set(i);
+            }
+        }
+        StringBuilder sb = new StringBuilder("BitSet OPAQUE_BLOCK = BitSet.valueOf(new long[] {");
+        for (long l : bs.toLongArray()) {
+            sb.append(l).append("L, ");
+        }
+        sb.append("});");
+    */
+    private static final BitSet OPAQUE_BLOCK = BitSet.valueOf(new long[]{8584984626151289790L, 8792557671616448008L, 33907971612214243L, -6917537823633605120L});
+
     @Override public Set<MultilayerAnvilChunkData> convert(CubicChunksColumnData input) {
         Map<Integer, AnvilChunkData> data = new HashMap<>();
         MinecraftChunkLocation chunkPos = new MinecraftChunkLocation(input.getPosition().getEntryX(), input.getPosition().getEntryZ(), "mca");
@@ -206,6 +225,7 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
          *  |- LightingInfo
          *   |- LastHeightMap
          */
+        boolean haveHeightmap = FORCE_RECOMPUTE_HEIGHTMAP;
         if (column != null) {
             CompoundMap columnLevel = (CompoundMap) column.getValue().get("Level").getValue();
             for (Tag<?> tag : columnLevel) {
@@ -217,18 +237,40 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
                         level.put(renamedInt(tag, "zPos"));
                         break;
                     case "OpacityIndex":
-                        level.put(getHeightMap(tag, layerIdx));
+                        Tag<?> heightMap = getHeightMap(tag, layerIdx);
+                        if (heightMap != null) {
+                            haveHeightmap = true;
+                            level.put(heightMap);
+                        }
                         break;
                     default:
                         level.put(tag);
                 }
             }
         }
-        // TODO: use existing heightmap? Is it safe?
-        int[] heights = new int[256];
-        Arrays.fill(heights, -999);
-        Tag<?> heightsTag = new IntArrayTag("HeightMap", heights);
-        level.put(heightsTag);
+        if (!haveHeightmap) {
+            // TODO: use existing heightmap? Is it safe?
+            int[] heights = new int[256];
+            for (CompoundTag cube : cubes) {
+                CompoundMap cubeLevel = (CompoundMap) cube.getValue().get("Level").getValue();
+                if (cubeLevel == null) {
+                    continue;
+                }
+                int cubeYBase = ((IntTag) cubeLevel.get("yPos")).getValue() << 4;
+                @SuppressWarnings("unchecked") ListTag<CompoundTag> sections = (ListTag<CompoundTag>) cubeLevel.get("Sections");
+                CompoundMap section = sections.getValue().get(0).getValue();
+                byte[] blocks = ((ByteArrayTag) section.get("Blocks")).getValue();
+                for (int i = 0; i < blocks.length; i++) {
+                    if (OPAQUE_BLOCK.get(blocks[i])) {
+                        int y = (i >>> 8 | cubeYBase) + 1;
+                        if (y > heights[i & 0xFF]) {
+                            heights[i & 0xFF] = y;
+                        }
+                    }
+                }
+            }
+            level.put(new IntArrayTag("HeightMap", heights));
+        }
 
         for (CompoundTag cube : cubes) {
             if (cube != null) {
@@ -388,7 +430,7 @@ public class CC2AnvilDataConverter implements ChunkDataConverter<CubicChunksColu
             }
         } catch (EOFException e) {
             e.printStackTrace();
-            Arrays.fill(output, -999);
+            return null;
         } catch (IOException e) {
             throw new Error("ByteArrayInputStream doesn't throw IOException");
         }
